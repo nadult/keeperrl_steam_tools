@@ -19,7 +19,15 @@ public:
 		assert(m_ptr);
 	}
 	
-	int numFriends(unsigned flags) const {
+	CSteamID getFriendByIndex(int idx, unsigned flags = k_EFriendFlagAll) const {
+		return CSteamID(CALL(GetFriendByIndex, idx, flags));
+	}
+
+	string getFriendName(CSteamID friend_id) const {
+		return CALL(GetFriendPersonaName, friend_id);
+	}
+ 
+	int numFriends(unsigned flags = k_EFriendFlagAll) const {
 		return CALL(GetFriendCount, flags);
 	}
 
@@ -62,6 +70,14 @@ class Client {
 
 }
 
+void printFriends(const steam::Friends &friends) {
+	int count = friends.numFriends();
+	for(int n = 0; n < count; n++) {
+		auto id = friends.getFriendByIndex(n);
+		printf("Friend #%d: %s [%ull]\n", n, friends.getFriendName(id).c_str(), id);
+	}
+}
+
 int main() {
 	if (!SteamAPI_Init()) {
 		printf("Steam is not running\n");
@@ -70,7 +86,8 @@ int main() {
 	
 	steam::Client client;
 	auto friends = client.getFriends();
-	printf("Num friends: %d\n", friends.numFriends(k_EFriendFlagAll));
+
+	printFriends(friends);
 	
 	return 0;
 }
