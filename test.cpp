@@ -100,6 +100,31 @@ private:
 	intptr_t m_ptr;
 };
 
+class UGC {
+#define CALL(name, ...) SteamAPI_ISteamUGC_##name(m_ptr __VA_OPT__(,) __VA_ARGS__)
+	public:
+	UGC(ISteamUGC *ptr) :m_ptr(intptr_t(ptr)) { assert(ptr); }
+
+	int numSubscribedItems() const {
+		return (int)CALL(GetNumSubscribedItems);
+	}
+
+	using FileID = PublishedFileId_t;
+
+	// TODO: consitency with get suffix
+	vector<FileID> subscribedItems() const {
+		vector<FileID> out(numSubscribedItems());
+		int result = CALL(GetSubscribedItems, out.data(), out.size());
+		out.resize(result);
+		return out;
+	}
+
+
+private:
+	#undef CALL
+	intptr_t m_ptr;
+};
+
 class Client {
 #define CALL(name, ...) SteamAPI_ISteamClient_##name(m_ptr __VA_OPT__(,) __VA_ARGS__)
 	public:
@@ -128,7 +153,9 @@ class Client {
 	Utils getUtils() const {
 		return CALL(GetISteamUtils, m_pipe, STEAMUTILS_INTERFACE_VERSION);
 	}
-	
+	UGC getUGC() const {
+		return CALL(GetISteamUGC, m_user, m_pipe, STEAMUGC_INTERFACE_VERSION);
+	}
 	
 	private:
 	#undef CALL
@@ -217,6 +244,10 @@ int main() {
 
 	printFriends(friends);
 	getFriendImages(friends, utils);
+
+	auto ugc = client.getUGC();
+	auto items = ugc.subscribedItems();
+	printf("Items: %d\n", (int)items.size());
 	
 	return 0;
 }
