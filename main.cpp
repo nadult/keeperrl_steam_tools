@@ -16,7 +16,7 @@ namespace steam {
 
 class Friends {
   public:
-#define CALL(name, ...) SteamAPI_ISteamFriends_##name(m_ptr __VA_OPT__(, ) __VA_ARGS__)
+#define FUNC(name, ...) SteamAPI_ISteamFriends_##name
   Friends(ISteamFriends* ptr) : m_ptr(intptr_t(ptr)) {
     assert(m_ptr);
   }
@@ -31,50 +31,50 @@ class Friends {
   }
 
   int count(unsigned flags = k_EFriendFlagAll) const {
-    return CALL(GetFriendCount, flags);
+    return FUNC(GetFriendCount)(m_ptr, flags);
   }
 
   CSteamID getIDByIndex(int idx, unsigned flags = k_EFriendFlagAll) const {
-    return CSteamID(CALL(GetFriendByIndex, idx, flags));
+    return CSteamID(FUNC(GetFriendByIndex)(m_ptr, idx, flags));
   }
 
   string getName(CSteamID friend_id) const {
-    return CALL(GetFriendPersonaName, friend_id);
+    return FUNC(GetFriendPersonaName)(m_ptr, friend_id);
   }
 
   int getAvatar(CSteamID friend_id, int size) const {
     assert(size >= 0 && size <= 2);
     if (size == 0)
-      return CALL(GetSmallFriendAvatar, friend_id);
+      return FUNC(GetSmallFriendAvatar)(m_ptr, friend_id);
     else if (size == 1)
-      return CALL(GetMediumFriendAvatar, friend_id);
+      return FUNC(GetMediumFriendAvatar)(m_ptr, friend_id);
     else // size == 2
-      return CALL(GetLargeFriendAvatar, friend_id);
+      return FUNC(GetLargeFriendAvatar)(m_ptr, friend_id);
   }
 
   private:
-#undef CALL
+#undef FUNC
   intptr_t m_ptr;
 };
 
 class User {
   public:
-#define CALL(name, ...) SteamAPI_ISteamUser_##name(m_ptr __VA_OPT__(, ) __VA_ARGS__)
+#define FUNC(name, ...) SteamAPI_ISteamUser_##name
   User(ISteamUser* ptr) : m_ptr(intptr_t(ptr)) {
     assert(m_ptr);
   }
 
   CSteamID getID() const {
-    return CALL(GetSteamID);
+    return FUNC(GetSteamID)(m_ptr);
   }
 
   private:
-#undef CALL
+#undef FUNC
   intptr_t m_ptr;
 };
 
 class Utils {
-#define CALL(name, ...) SteamAPI_ISteamUtils_##name(m_ptr __VA_OPT__(, ) __VA_ARGS__)
+#define FUNC(name, ...) SteamAPI_ISteamUtils_##name
   public:
   Utils(ISteamUtils* ptr) : m_ptr(intptr_t(ptr)) {
     assert(ptr);
@@ -83,7 +83,7 @@ class Utils {
   // TODO: return expected ?
   pair<int, int> getImageSize(int image_id) const {
     uint32_t w = 0, h = 0;
-    if (!CALL(GetImageSize, image_id, &w, &h))
+    if (!FUNC(GetImageSize)(m_ptr, image_id, &w, &h))
       assert(false);
     return {w, h};
   }
@@ -91,25 +91,25 @@ class Utils {
   vector<uint8> getImageData(int image_id) const {
     auto size = getImageSize(image_id);
     vector<uint8> out(size.first * size.second * 4);
-    if (!CALL(GetImageRGBA, image_id, out.data(), out.size()))
+    if (!FUNC(GetImageRGBA)(m_ptr, image_id, out.data(), out.size()))
       assert(false);
     return out;
   }
 
   private:
-#undef CALL
+#undef FUNC
   intptr_t m_ptr;
 };
 
 class UGC {
-#define CALL(name, ...) SteamAPI_ISteamUGC_##name(m_ptr __VA_OPT__(, ) __VA_ARGS__)
+#define FUNC(name, ...) SteamAPI_ISteamUGC_##name
   public:
   UGC(ISteamUGC* ptr) : m_ptr(intptr_t(ptr)) {
     assert(ptr);
   }
 
   int numSubscribedItems() const {
-    return (int)CALL(GetNumSubscribedItems);
+    return (int)FUNC(GetNumSubscribedItems)(m_ptr);
   }
 
   using FileID = PublishedFileId_t;
@@ -117,50 +117,50 @@ class UGC {
   // TODO: consitency with get suffix
   vector<FileID> subscribedItems() const {
     vector<FileID> out(numSubscribedItems());
-    int result = CALL(GetSubscribedItems, out.data(), out.size());
+    int result = FUNC(GetSubscribedItems)(m_ptr, out.data(), out.size());
     out.resize(result);
     return out;
   }
 
   private:
-#undef CALL
+#undef FUNC
   intptr_t m_ptr;
 };
 
 class Client {
-#define CALL(name, ...) SteamAPI_ISteamClient_##name(m_ptr __VA_OPT__(, ) __VA_ARGS__)
+#define FUNC(name, ...) SteamAPI_ISteamClient_##name
   public:
   Client() {
     // TODO: handle errors, use Expected<>
     m_ptr = (intptr_t)::SteamClient();
-    m_pipe = CALL(CreateSteamPipe);
-    m_user = CALL(ConnectToGlobalUser, m_pipe);
+    m_pipe = FUNC(CreateSteamPipe)(m_ptr);
+    m_user = FUNC(ConnectToGlobalUser)(m_ptr, m_pipe);
   }
   ~Client() {
-    CALL(ReleaseUser, m_pipe, m_user);
-    CALL(BReleaseSteamPipe, m_pipe);
+    FUNC(ReleaseUser)(m_ptr, m_pipe, m_user);
+    FUNC(BReleaseSteamPipe)(m_ptr, m_pipe);
   }
 
   Client(const Client&) = delete;
   void operator=(const Client&) = delete;
 
   Friends getFriends() const {
-    return CALL(GetISteamFriends, m_user, m_pipe, STEAMFRIENDS_INTERFACE_VERSION);
+    return FUNC(GetISteamFriends)(m_ptr, m_user, m_pipe, STEAMFRIENDS_INTERFACE_VERSION);
   }
 
   User getUser() const {
-    return CALL(GetISteamUser, m_user, m_pipe, STEAMUSER_INTERFACE_VERSION);
+    return FUNC(GetISteamUser)(m_ptr, m_user, m_pipe, STEAMUSER_INTERFACE_VERSION);
   }
 
   Utils getUtils() const {
-    return CALL(GetISteamUtils, m_pipe, STEAMUTILS_INTERFACE_VERSION);
+    return FUNC(GetISteamUtils)(m_ptr, m_pipe, STEAMUTILS_INTERFACE_VERSION);
   }
   UGC getUGC() const {
-    return CALL(GetISteamUGC, m_user, m_pipe, STEAMUGC_INTERFACE_VERSION);
+    return FUNC(GetISteamUGC)(m_ptr, m_user, m_pipe, STEAMUGC_INTERFACE_VERSION);
   }
 
   private:
-#undef CALL
+#undef FUNC
   static constexpr const char* version = "144";
   intptr_t m_ptr;
   HSteamPipe m_pipe;

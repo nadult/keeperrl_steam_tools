@@ -2,7 +2,7 @@ import os
 import ycm_core
 
 flags = [
-'-x', 'c++','-fno-exceptions', '-std=c++2a',
+'-x', 'c++', '-std=c++1y',
 '-Wall', '-Wextra', '-Werror', '-Woverloaded-virtual', '-Wno-non-virtual-dtor', '-Werror=return-type', '-Werror=switch',
 '-Wimplicit-fallthrough', '-Wno-reorder', '-Wuninitialized', '-Wno-unused-function', '-Wno-unused-variable',
 '-Wno-unused-parameter', '-Wparentheses', '-Wno-overloaded-virtual', '-Wno-undefined-inline', '-Wno-unknown-attributes',

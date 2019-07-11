@@ -1,5 +1,5 @@
 ifndef GCC
-GCC = g++-8
+GCC = g++
 endif
 LD = $(GCC)
 
@@ -25,8 +25,7 @@ endif
 
 all: $(NAME)
 
-#TODO: drop support on VA_OPT
-CFLAGS+=-I./ -I steamworks/public/ -fmax-errors=20 -g -std=c++2a
+CFLAGS+=-I./ -I steamworks/public/ -fmax-errors=20 -g -std=c++1y
 LDFLAGS+=-L $(LIB_DIR) -l $(LIB_NAME)
 
 OBJDIR = obj
