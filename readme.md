@@ -3,7 +3,7 @@
 ## Building
 
 - extract steamworks sdk into steamworks/ directory in the root folder
-- apply steam\_api\_flat.patch to steamworks/public/steam/steam\_api\_flat.h 
+- run fix\_headers.sh (it comments/removes declarations which cause compilation problems)
 - run make
 
 For now following platforms are supported:
