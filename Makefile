@@ -46,5 +46,6 @@ clean:
 	$(RM) $(OBJDIR)/*.o
 	$(RM) $(OBJDIR)/*.d
 	$(RM) $(NAME)
+	-rmdir $(OBJDIR)
 
 -include $(DEPS)
