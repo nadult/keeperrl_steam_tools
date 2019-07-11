@@ -1,0 +1,3 @@
+26,27d25
+< typedef int64 lint64;
+< typedef uint64 ulint64;

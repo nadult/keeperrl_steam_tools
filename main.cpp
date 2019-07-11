@@ -172,7 +172,7 @@ void printFriends(const steam::Friends& friends) {
   int count = friends.count();
   for (int n = 0; n < count; n++) {
     auto id = friends.getIDByIndex(n);
-    printf("Friend #%d: %s [%ull]\n", n, friends.getName(id).c_str(), id);
+    printf("Friend #%d: %s [%llu]\n", n, friends.getName(id).c_str(), id.ConvertToUint64());
   }
   fflush(stdout);
 }
