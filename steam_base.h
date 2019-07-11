@@ -22,4 +22,5 @@ class Utils;
 class User;
 
 bool initAPI();
+void runCallbacks();
 }

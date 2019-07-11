@@ -2,6 +2,7 @@
 
 #include "steam_base.h"
 #include <steam/isteamclient.h>
+#include <memory>
 
 namespace steam {
 class Client {
@@ -15,11 +16,13 @@ class Client {
   Friends friends() const;
   User user() const;
   Utils utils() const;
-  UGC ugc() const;
+
+  UGC& ugc();
 
   private:
   intptr_t m_ptr;
   HSteamPipe m_pipe;
   HSteamUser m_user;
+  std::unique_ptr<UGC> m_ugc;
 };
 }

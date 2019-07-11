@@ -98,7 +98,7 @@ string itemStateText(uint32_t bits) {
 }
 
 void printWorkshopItems(steam::Client& client) {
-  auto ugc = client.ugc();
+  auto& ugc = client.ugc();
 
   auto items = ugc.subscribedItems();
   for (auto item : items) {
@@ -114,6 +114,29 @@ void printWorkshopItems(steam::Client& client) {
       printf("  Downloading: %llu / %llu bytes\n", info.bytes_downloaded, info.bytes_total);
     }
   }
+
+  steam::QueryInfo qinfo;
+  qinfo.metadata = true;
+  auto qid = ugc.createQuery(qinfo, items);
+
+  int num_retires = 20;
+  for (int r = 0; r < num_retires; r++) {
+    steam::runCallbacks();
+    if (ugc.isCompleted(qid)) {
+      auto& query = ugc.readQuery(qid);
+      printf("Query completed with %d / %d results\n", query.numResults(), query.totalResults());
+
+      for (int n = 0; n < query.numResults(); n++)
+        printf("  Meta %d: %s\n", n, query.metadata(n).c_str());
+      break;
+    }
+    usleep(100 * 1000);
+  }
+
+  if (!ugc.isCompleted(qid)) {
+    printf("Query failed!\n");
+  }
+  ugc.finishQuery(qid);
 }
 
 void printHelp() {

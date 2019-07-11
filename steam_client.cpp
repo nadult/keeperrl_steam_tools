@@ -16,6 +16,10 @@ bool initAPI() {
   return SteamAPI_Init();
 }
 
+void runCallbacks() {
+  SteamAPI_RunCallbacks();
+}
+
 Client::Client() {
   // TODO: handle errors, use Expected<>
   m_ptr = (intptr_t)::SteamClient();
@@ -23,6 +27,7 @@ Client::Client() {
   m_user = FUNC(ConnectToGlobalUser)(m_ptr, m_pipe);
 }
 Client::~Client() {
+  m_ugc.reset();
   FUNC(ReleaseUser)(m_ptr, m_pipe, m_user);
   FUNC(BReleaseSteamPipe)(m_ptr, m_pipe);
 }
@@ -44,9 +49,13 @@ Utils Client::utils() const {
   CHECK(ptr);
   return (intptr_t)ptr;
 }
-UGC Client::ugc() const {
-  auto ptr = FUNC(GetISteamUGC)(m_ptr, m_user, m_pipe, STEAMUGC_INTERFACE_VERSION);
-  CHECK(ptr);
-  return (intptr_t)ptr;
+
+UGC& Client::ugc() {
+  if (!m_ugc) {
+    auto ptr = FUNC(GetISteamUGC)(m_ptr, m_user, m_pipe, STEAMUGC_INTERFACE_VERSION);
+    CHECK(ptr);
+    m_ugc.reset(new UGC((intptr_t)ptr));
+  }
+  return *m_ugc.get();
 }
 }
