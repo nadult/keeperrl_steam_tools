@@ -200,12 +200,12 @@ void getFriendImages(const steam::Friends& friends, const steam::Utils& utils) {
   vector<int> results(ids.size(), -1);
   vector<bool> completed(ids.size(), false);
 
-  for (int n = 0; n < ids.size(); n++)
+  for (size_t n = 0; n < ids.size(); n++)
     results[n] = friends.getAvatar(ids[n], 0);
 
-  int num_completed = 0;
-  for (int r = 0; r < 100 && num_completed < ids.size(); r++) {
-    for (int n = 0; n < ids.size(); n++) {
+  uint num_completed = 0;
+  for (uint r = 0; r < 100 && num_completed < ids.size(); r++) {
+    for (uint n = 0; n < ids.size(); n++) {
       if (completed[n])
         continue;
 
