@@ -10,7 +10,9 @@
 
 using namespace std;
 
-void printFriends(const steam::Friends& friends) {
+void printFriends(const steam::Client& client) {
+  auto friends = client.friends();
+
   auto ids = friends.ids();
   for (unsigned n = 0; n < ids.size(); n++)
     printf("Friend #%d: %s [%llu]\n", n, friends.name(ids[n]).c_str(), ids[n].ConvertToUint64());
@@ -35,7 +37,10 @@ void displayImage(vector<uint8_t> data, pair<int, int> size) {
   fflush(stdout);
 }
 
-void getFriendImages(const steam::Friends& friends, const steam::Utils& utils) {
+void printFriendAvatars(const steam::Client& client) {
+  auto friends = client.friends();
+  auto utils = client.utils();
+
   auto ids = friends.ids();
   vector<int> results(ids.size(), -1);
   vector<bool> completed(ids.size(), false);
@@ -71,22 +76,79 @@ void getFriendImages(const steam::Friends& friends, const steam::Utils& utils) {
   printf("Completed: %d\n", num_completed);
 }
 
-int main() {
+template <class T, int size> constexpr int arraySize(T (&)[size]) {
+  return size;
+}
+
+string itemStateText(uint32_t bits) {
+  static const char* names[] = {"subscribed",   "legacy_item", "installed",
+                                "needs_update", "downloading", "download_pending"};
+
+  if (bits == k_EItemStateNone)
+    return "none";
+
+  string out;
+  for (int n = 0; n < arraySize(names); n++)
+    if (bits & (1 << n)) {
+      if (!out.empty())
+        out += ' ';
+      out += names[n];
+    }
+  return out;
+}
+
+void printWorkshopItems(steam::Client& client) {
+  auto ugc = client.ugc();
+
+  auto items = ugc.subscribedItems();
+  for (auto item : items) {
+    auto state = ugc.state(item);
+    printf("Item #%d: %s\n", (int)item, itemStateText(state).c_str());
+    if (state & k_EItemStateInstalled) {
+      auto info = ugc.installInfo(item);
+      printf("  Installed at: %s  size: %llu  time_stamp: %u\n", info.folder.c_str(), info.size_on_disk,
+             info.time_stamp);
+    }
+    if (state & k_EItemStateDownloading) {
+      auto info = ugc.downloadInfo(item);
+      printf("  Downloading: %llu / %llu bytes\n", info.bytes_downloaded, info.bytes_total);
+    }
+  }
+}
+
+void printHelp() {
+  printf("Options:\n-help\n-friends\n-avatars\n-workshop\n");
+}
+
+int main(int argc, char** argv) {
+  if (argc <= 1) {
+    printHelp();
+    return 0;
+  }
+
   if (!steam::initAPI()) {
     printf("Steam is not running\n");
     return 0;
   }
 
   steam::Client client;
-  auto friends = client.friends();
-  auto utils = client.utils();
 
-  printFriends(friends);
-  getFriendImages(friends, utils);
+  for (int n = 1; n < argc; n++) {
+    string option = argv[n];
 
-  auto ugc = client.ugc();
-  auto items = ugc.subscribedItems();
-  printf("Items: %d\n", (int)items.size());
+    if (option == "-friends")
+      printFriends(client);
+    else if (option == "-avatars")
+      printFriendAvatars(client);
+    else if (option == "-workshop")
+      printWorkshopItems(client);
+    else if (option == "-help")
+      printHelp();
+    else {
+      printf("unknown option: %s\n", argv[n]);
+      return 0;
+    }
+  }
 
   return 0;
 }
