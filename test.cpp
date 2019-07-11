@@ -15,239 +15,238 @@ using namespace std;
 namespace steam {
 
 class Friends {
-public:
-#define CALL(name, ...) SteamAPI_ISteamFriends_##name(m_ptr __VA_OPT__(,) __VA_ARGS__)
-	Friends(ISteamFriends *ptr) :m_ptr(intptr_t(ptr)) {
-		assert(m_ptr);
-	}
+  public:
+#define CALL(name, ...) SteamAPI_ISteamFriends_##name(m_ptr __VA_OPT__(, ) __VA_ARGS__)
+  Friends(ISteamFriends* ptr) : m_ptr(intptr_t(ptr)) {
+    assert(m_ptr);
+  }
 
-	vector<CSteamID> allIds() const {
-		int count = this->count();
-		vector<CSteamID> out;
-		out.reserve(count);
-		for(int n = 0; n < count; n++)
-			out.emplace_back(getIDByIndex(n));
-		return out;
-	}
+  vector<CSteamID> allIds() const {
+    int count = this->count();
+    vector<CSteamID> out;
+    out.reserve(count);
+    for (int n = 0; n < count; n++)
+      out.emplace_back(getIDByIndex(n));
+    return out;
+  }
 
-	int count(unsigned flags = k_EFriendFlagAll) const {
-		return CALL(GetFriendCount, flags);
-	}
-	
-	CSteamID getIDByIndex(int idx, unsigned flags = k_EFriendFlagAll) const {
-		return CSteamID(CALL(GetFriendByIndex, idx, flags));
-	}
+  int count(unsigned flags = k_EFriendFlagAll) const {
+    return CALL(GetFriendCount, flags);
+  }
 
-	string getName(CSteamID friend_id) const {
-		return CALL(GetFriendPersonaName, friend_id);
-	}
- 
-	int getAvatar(CSteamID friend_id, int size) const {
-		assert(size >= 0 && size <= 2);
-		if(size == 0)
-			return CALL(GetSmallFriendAvatar, friend_id);
-		else if(size == 1)
-			return CALL(GetMediumFriendAvatar, friend_id);
-		else // size == 2
-			return CALL(GetLargeFriendAvatar, friend_id);
-	}
+  CSteamID getIDByIndex(int idx, unsigned flags = k_EFriendFlagAll) const {
+    return CSteamID(CALL(GetFriendByIndex, idx, flags));
+  }
 
-	private:
+  string getName(CSteamID friend_id) const {
+    return CALL(GetFriendPersonaName, friend_id);
+  }
+
+  int getAvatar(CSteamID friend_id, int size) const {
+    assert(size >= 0 && size <= 2);
+    if (size == 0)
+      return CALL(GetSmallFriendAvatar, friend_id);
+    else if (size == 1)
+      return CALL(GetMediumFriendAvatar, friend_id);
+    else // size == 2
+      return CALL(GetLargeFriendAvatar, friend_id);
+  }
+
+  private:
 #undef CALL
-	intptr_t m_ptr;
+  intptr_t m_ptr;
 };
 
-
 class User {
-public:
-#define CALL(name, ...) SteamAPI_ISteamUser_##name(m_ptr __VA_OPT__(,) __VA_ARGS__)
-	User(ISteamUser *ptr) :m_ptr(intptr_t(ptr)) {
-		assert(m_ptr);
-	}
+  public:
+#define CALL(name, ...) SteamAPI_ISteamUser_##name(m_ptr __VA_OPT__(, ) __VA_ARGS__)
+  User(ISteamUser* ptr) : m_ptr(intptr_t(ptr)) {
+    assert(m_ptr);
+  }
 
-	CSteamID getID() const {
-		return CALL(GetSteamID);
-	}
+  CSteamID getID() const {
+    return CALL(GetSteamID);
+  }
 
-private:
-	#undef CALL
-	intptr_t m_ptr;
+  private:
+#undef CALL
+  intptr_t m_ptr;
 };
 
 class Utils {
-#define CALL(name, ...) SteamAPI_ISteamUtils_##name(m_ptr __VA_OPT__(,) __VA_ARGS__)
-public:
-	Utils(ISteamUtils *ptr) :m_ptr(intptr_t(ptr)) { assert(ptr); }
+#define CALL(name, ...) SteamAPI_ISteamUtils_##name(m_ptr __VA_OPT__(, ) __VA_ARGS__)
+  public:
+  Utils(ISteamUtils* ptr) : m_ptr(intptr_t(ptr)) {
+    assert(ptr);
+  }
 
-	// TODO: return expected ?
-	pair<int, int> getImageSize(int image_id) const {
-		uint32_t w = 0, h = 0;
-		if(!CALL(GetImageSize, image_id, &w, &h))
-			assert(false);
-		return {w, h};
-	}
+  // TODO: return expected ?
+  pair<int, int> getImageSize(int image_id) const {
+    uint32_t w = 0, h = 0;
+    if (!CALL(GetImageSize, image_id, &w, &h))
+      assert(false);
+    return {w, h};
+  }
 
-	vector<uint8> getImageData(int image_id) const {
-		auto size = getImageSize(image_id);
-		vector<uint8> out(size.first * size.second * 4);
-		if(!CALL(GetImageRGBA, image_id, out.data(), out.size()))
-			assert(false);
-		return out;
-	}
+  vector<uint8> getImageData(int image_id) const {
+    auto size = getImageSize(image_id);
+    vector<uint8> out(size.first * size.second * 4);
+    if (!CALL(GetImageRGBA, image_id, out.data(), out.size()))
+      assert(false);
+    return out;
+  }
 
-private:
+  private:
 #undef CALL
-	intptr_t m_ptr;
+  intptr_t m_ptr;
 };
 
 class UGC {
-#define CALL(name, ...) SteamAPI_ISteamUGC_##name(m_ptr __VA_OPT__(,) __VA_ARGS__)
-	public:
-	UGC(ISteamUGC *ptr) :m_ptr(intptr_t(ptr)) { assert(ptr); }
+#define CALL(name, ...) SteamAPI_ISteamUGC_##name(m_ptr __VA_OPT__(, ) __VA_ARGS__)
+  public:
+  UGC(ISteamUGC* ptr) : m_ptr(intptr_t(ptr)) {
+    assert(ptr);
+  }
 
-	int numSubscribedItems() const {
-		return (int)CALL(GetNumSubscribedItems);
-	}
+  int numSubscribedItems() const {
+    return (int)CALL(GetNumSubscribedItems);
+  }
 
-	using FileID = PublishedFileId_t;
+  using FileID = PublishedFileId_t;
 
-	// TODO: consitency with get suffix
-	vector<FileID> subscribedItems() const {
-		vector<FileID> out(numSubscribedItems());
-		int result = CALL(GetSubscribedItems, out.data(), out.size());
-		out.resize(result);
-		return out;
-	}
+  // TODO: consitency with get suffix
+  vector<FileID> subscribedItems() const {
+    vector<FileID> out(numSubscribedItems());
+    int result = CALL(GetSubscribedItems, out.data(), out.size());
+    out.resize(result);
+    return out;
+  }
 
-
-private:
-	#undef CALL
-	intptr_t m_ptr;
+  private:
+#undef CALL
+  intptr_t m_ptr;
 };
 
 class Client {
-#define CALL(name, ...) SteamAPI_ISteamClient_##name(m_ptr __VA_OPT__(,) __VA_ARGS__)
-	public:
-	Client() {
-		// TODO: handle errors, use Expected<>
-		m_ptr = (intptr_t)::SteamClient();
-		m_pipe = CALL(CreateSteamPipe);
-		m_user = CALL(ConnectToGlobalUser, m_pipe);
-	}
-	~Client() {
-		CALL(ReleaseUser, m_pipe, m_user);
-		CALL(BReleaseSteamPipe, m_pipe);
-	}
-	
-	Client(const Client&) = delete;
-	void operator=(const Client&) = delete;
-	
-	Friends getFriends() const {
-		return CALL(GetISteamFriends, m_user, m_pipe, STEAMFRIENDS_INTERFACE_VERSION);
-	}
+#define CALL(name, ...) SteamAPI_ISteamClient_##name(m_ptr __VA_OPT__(, ) __VA_ARGS__)
+  public:
+  Client() {
+    // TODO: handle errors, use Expected<>
+    m_ptr = (intptr_t)::SteamClient();
+    m_pipe = CALL(CreateSteamPipe);
+    m_user = CALL(ConnectToGlobalUser, m_pipe);
+  }
+  ~Client() {
+    CALL(ReleaseUser, m_pipe, m_user);
+    CALL(BReleaseSteamPipe, m_pipe);
+  }
 
-	User getUser() const {
-		return CALL(GetISteamUser, m_user, m_pipe, STEAMUSER_INTERFACE_VERSION);
-	}
+  Client(const Client&) = delete;
+  void operator=(const Client&) = delete;
 
-	Utils getUtils() const {
-		return CALL(GetISteamUtils, m_pipe, STEAMUTILS_INTERFACE_VERSION);
-	}
-	UGC getUGC() const {
-		return CALL(GetISteamUGC, m_user, m_pipe, STEAMUGC_INTERFACE_VERSION);
-	}
-	
-	private:
-	#undef CALL
-	static constexpr const char *version = "144";
-	intptr_t m_ptr;
-	HSteamPipe m_pipe;
-	HSteamUser m_user;
+  Friends getFriends() const {
+    return CALL(GetISteamFriends, m_user, m_pipe, STEAMFRIENDS_INTERFACE_VERSION);
+  }
+
+  User getUser() const {
+    return CALL(GetISteamUser, m_user, m_pipe, STEAMUSER_INTERFACE_VERSION);
+  }
+
+  Utils getUtils() const {
+    return CALL(GetISteamUtils, m_pipe, STEAMUTILS_INTERFACE_VERSION);
+  }
+  UGC getUGC() const {
+    return CALL(GetISteamUGC, m_user, m_pipe, STEAMUGC_INTERFACE_VERSION);
+  }
+
+  private:
+#undef CALL
+  static constexpr const char* version = "144";
+  intptr_t m_ptr;
+  HSteamPipe m_pipe;
+  HSteamUser m_user;
 };
-
 }
 
-void printFriends(const steam::Friends &friends) {
-	int count = friends.count();
-	for(int n = 0; n < count; n++) {
-		auto id = friends.getIDByIndex(n);
-		printf("Friend #%d: %s [%ull]\n", n, friends.getName(id).c_str(), id);
-	}
-	fflush(stdout);
+void printFriends(const steam::Friends& friends) {
+  int count = friends.count();
+  for (int n = 0; n < count; n++) {
+    auto id = friends.getIDByIndex(n);
+    printf("Friend #%d: %s [%ull]\n", n, friends.getName(id).c_str(), id);
+  }
+  fflush(stdout);
 }
 
 void displayImage(vector<uint8_t> data, pair<int, int> size) {
-	int max_size = 16, sub_size = 2;
-	assert(size.first == max_size * sub_size && size.second == size.first);
+  int max_size = 16, sub_size = 2;
+  assert(size.first == max_size * sub_size && size.second == size.first);
 
-	for(int y = 0; y < max_size; y++) {
-		for(int x = 0; x < max_size; x++) {
-			int value = 0;
-			for(int ix = 0; ix < sub_size; ix++)
-				for(int iy = 0; iy < sub_size; iy++)
-					value += data[(x * sub_size + ix + (y * sub_size + iy) * size.first) * 4 + 1];
-			value /= sub_size * sub_size;
-			printf("%c", value > 80? 'X' : ' ');
-		}
-		printf("\n");
-	}
-	fflush(stdout);
+  for (int y = 0; y < max_size; y++) {
+    for (int x = 0; x < max_size; x++) {
+      int value = 0;
+      for (int ix = 0; ix < sub_size; ix++)
+        for (int iy = 0; iy < sub_size; iy++)
+          value += data[(x * sub_size + ix + (y * sub_size + iy) * size.first) * 4 + 1];
+      value /= sub_size * sub_size;
+      printf("%c", value > 80 ? 'X' : ' ');
+    }
+    printf("\n");
+  }
+  fflush(stdout);
 }
 
-void getFriendImages(const steam::Friends &friends, const steam::Utils &utils) {
-	auto ids = friends.allIds();
-	vector<int> results(ids.size(), -1);
-	vector<bool> completed(ids.size(), false);
+void getFriendImages(const steam::Friends& friends, const steam::Utils& utils) {
+  auto ids = friends.allIds();
+  vector<int> results(ids.size(), -1);
+  vector<bool> completed(ids.size(), false);
 
-	for(int n = 0; n < ids.size(); n++)
-		results[n] = friends.getAvatar(ids[n], 0);
+  for (int n = 0; n < ids.size(); n++)
+    results[n] = friends.getAvatar(ids[n], 0);
 
-	int num_completed = 0;
-	for(int r = 0; r < 100 && num_completed < ids.size(); r++) {
-		for(int n = 0; n < ids.size(); n++) {
-			if(completed[n])
-				continue;
+  int num_completed = 0;
+  for (int r = 0; r < 100 && num_completed < ids.size(); r++) {
+    for (int n = 0; n < ids.size(); n++) {
+      if (completed[n])
+        continue;
 
-			results[n] = friends.getAvatar(ids[n], 0);
-			if(results[n] == 0) {
-				printf("%d: no avatar\n", n);
-				num_completed++;
-				completed[n] = true;
-			}
-			else if(results[n] == -1) {
-				continue;
-			}
-			else {
-				auto size = utils.getImageSize(results[n]);
-				printf("%d: Getting avatar data (%dx%d)\n", n, size.first, size.second);
-				auto data = utils.getImageData(results[n]);
-				displayImage(data, size);
+      results[n] = friends.getAvatar(ids[n], 0);
+      if (results[n] == 0) {
+        printf("%d: no avatar\n", n);
+        num_completed++;
+        completed[n] = true;
+      } else if (results[n] == -1) {
+        continue;
+      } else {
+        auto size = utils.getImageSize(results[n]);
+        printf("%d: Getting avatar data (%dx%d)\n", n, size.first, size.second);
+        auto data = utils.getImageData(results[n]);
+        displayImage(data, size);
 
-				completed[n] = true;
-				num_completed++;
-			}
-		}
- 		usleep(100 * 1000);
-	}
-	printf("Completed: %d\n", num_completed);
+        completed[n] = true;
+        num_completed++;
+      }
+    }
+    usleep(100 * 1000);
+  }
+  printf("Completed: %d\n", num_completed);
 }
 
 int main() {
-	if (!SteamAPI_Init()) {
-		printf("Steam is not running\n");
-		return 0;
-	}
-	
-	steam::Client client;
-	auto friends = client.getFriends();
-	auto utils = client.getUtils();
+  if (!SteamAPI_Init()) {
+    printf("Steam is not running\n");
+    return 0;
+  }
 
-	printFriends(friends);
-	getFriendImages(friends, utils);
+  steam::Client client;
+  auto friends = client.getFriends();
+  auto utils = client.getUtils();
 
-	auto ugc = client.getUGC();
-	auto items = ugc.subscribedItems();
-	printf("Items: %d\n", (int)items.size());
-	
-	return 0;
+  printFriends(friends);
+  getFriendImages(friends, utils);
+
+  auto ugc = client.getUGC();
+  auto items = ugc.subscribedItems();
+  printf("Items: %d\n", (int)items.size());
+
+  return 0;
 }
