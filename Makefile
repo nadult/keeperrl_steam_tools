@@ -13,12 +13,12 @@ ifeq ($(MACHINE), x86_64-linux-gnu)
 	LIB_NAME=steam_api
 	NAME=steam_tools
 else ifeq ($(MACHINE), x86_64-w64-mingw32)
-	LIB_DIR=steamworks/redistributable_bin/
-	LIB_NAME=steam_api
-	NAME=steam_tools.exe
-else ifeq ($(MACHINE), i686-w64-mingw32)
 	LIB_DIR=steamworks/redistributable_bin/win64/
 	LIB_NAME=steam_api64
+	NAME=steam_tools.exe
+else ifeq ($(MACHINE), i686-w64-mingw32)
+	LIB_DIR=steamworks/redistributable_bin/
+	LIB_NAME=steam_api
 	NAME=steam_tools.exe
 #TODO: else handle error
 endif
