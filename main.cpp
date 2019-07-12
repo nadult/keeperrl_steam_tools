@@ -157,20 +157,20 @@ void printWorkshopItems(steam::Client& client) {
     printf("Item #%d: %s\n", (int)item, itemStateText(state).c_str());
     if (state & k_EItemStateInstalled) {
       auto info = ugc.installInfo(item);
-      printf("  Installed at: %s\n  Size: %llu  Time_stamp: %u\n", info.folder.c_str(), info.size_on_disk,
-             info.time_stamp);
+      printf("  Installed at: %s\n  Size: %llu  Time_stamp: %u\n", info.folder.c_str(), info.sizeOnDisk,
+             info.timeStamp);
       printFiles(info.folder, 2, false);
       printf("\n");
     }
     if (state & k_EItemStateDownloading) {
       auto info = ugc.downloadInfo(item);
-      printf("  Downloading: %llu / %llu bytes\n", info.bytes_downloaded, info.bytes_total);
+      printf("  Downloading: %llu / %llu bytes\n", info.bytesDownloaded, info.bytesTotal);
     }
   }
 
   steam::QueryInfo qinfo;
-  qinfo.key_value_tags = true;
-  qinfo.long_description = true;
+  qinfo.keyValueTags = true;
+  qinfo.longDescription = true;
   auto qid = ugc.createQuery(qinfo, items);
 
   int num_retries = 20;
@@ -196,8 +196,8 @@ void printAllWorkshopItems(steam::Client& client) {
 
   steam::QueryInfo qinfo;
   //qinfo.metadata = true;
-  qinfo.only_ids = true;
-  qinfo.key_value_tags = true;
+  qinfo.onlyIds = true;
+  qinfo.keyValueTags = true;
   auto qid = ugc.createQuery(qinfo, k_EUGCQuery_RankedByVote, k_EUGCMatchingUGCType_All, utils.appId(), 1);
 
   int num_retries = 20;

@@ -9,28 +9,27 @@ namespace steam {
 using ItemId = PublishedFileId_t;
 
 struct DownloadInfo {
-  unsigned long long bytes_downloaded;
-  unsigned long long bytes_total;
+  unsigned long long bytesDownloaded;
+  unsigned long long bytesTotal;
 };
 
 struct InstallInfo {
-  unsigned long long size_on_disk;
+  unsigned long long sizeOnDisk;
   string folder;
-  unsigned time_stamp;
+  unsigned timeStamp;
 };
 
-// TODO: fix var names
 struct QueryInfo {
-  string search_text;
-  unsigned playtime_stats_days = 0;
-  bool additional_previews = false;
+  string searchText;
+  unsigned playtimeStatsDays = 0;
+  bool additionalPreviews = false;
   bool children = false;
-  bool key_value_tags = false;
-  bool long_description = false;
+  bool keyValueTags = false;
+  bool longDescription = false;
   bool metadata = false;
-  bool only_ids = false;
-  bool playtime_stats = false;
-  bool total_only = false;
+  bool onlyIds = false;
+  bool playtimeStats = false;
+  bool totalOnly = false;
 };
 
 struct QueryResults {
@@ -102,7 +101,7 @@ class UGC {
   void setupQuery(QHandle, const QueryInfo&);
 
   friend class Client;
-  vector<QueryData> m_queries;
-  intptr_t m_ptr;
+  vector<QueryData> queries;
+  intptr_t ptr;
 };
 }
