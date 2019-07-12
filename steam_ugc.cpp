@@ -1,27 +1,15 @@
 #include "steam_internal.h"
 #include "steam_ugc.h"
+#include "steam_utils.h"
 
 #define FUNC(name, ...) SteamAPI_ISteamUGC_##name
 
 namespace steam {
 
-UGCQuery::UGCQuery(intptr_t ugc) : m_ugc(ugc) {
-}
-UGCQuery::~UGCQuery() = default;
-
-string UGCQuery::metadata(int idx) const {
-  char buffer[4096];
-  auto result = FUNC(GetQueryUGCMetadata)(m_ugc, m_handle, idx, buffer, sizeof(buffer) - 1);
-  buffer[sizeof(buffer) - 1] = 0;
-  return buffer;
-}
-
 UGC::UGC(intptr_t ptr) : m_ptr(ptr) {
-  m_query_completed.Register(this, &UGC::onQueryCompleted);
 }
 
 UGC::~UGC() {
-  m_query_completed.Unregister();
 }
 
 int UGC::numSubscribedItems() const {
@@ -55,48 +43,53 @@ InstallInfo UGC::installInfo(ItemId id) const {
   return {size_on_disk, buffer, time_stamp};
 }
 
-UGC::QueryId UGC::allocQuery(Query::Handle handle, const QueryInfo& info) {
-  int index = -1;
+UGC::QueryId UGC::allocQuery(QHandle handle, const QueryInfo& info) {
+  int qid = -1;
   for (int n = 0; n < m_queries.size(); n++)
-    if (!m_queries[n].isValid()) {
-      index = n;
+    if (!m_queries[n].valid()) {
+      qid = n;
       break;
     }
-  if (index == -1) {
-    index = m_queries.size();
-    m_queries.push_back(UGCQuery(m_ptr));
+  if (qid == -1) {
+    qid = m_queries.size();
+    m_queries.emplace_back();
   }
 
-  auto& query = m_queries[index];
-  query.m_handle = handle;
-  query.m_is_completed = false;
-  query.m_info = info;
-
-  return index;
+  auto& query = m_queries[qid];
+  query.handle = handle;
+  query.info = info;
+  return qid;
 }
 
-void UGC::setupQuery(Query::Handle handle, const QueryInfo& info) {
-  if (info.metadata)
-    FUNC(SetReturnMetadata)(m_ptr, handle, true);
-  if (info.children)
-    FUNC(SetReturnChildren)(m_ptr, handle, true);
-  // TODO
+void UGC::setupQuery(QHandle handle, const QueryInfo& info) {
+#define SET_VAR(var, func)                                                                                             \
+  if (info.var)                                                                                                        \
+    FUNC(SetReturn##func)(m_ptr, handle, true);
+  SET_VAR(additional_previews, AdditionalPreviews)
+  SET_VAR(children, Children)
+  SET_VAR(key_value_tags, KeyValueTags)
+  SET_VAR(long_description, LongDescription)
+  SET_VAR(metadata, Metadata)
+  SET_VAR(only_ids, OnlyIDs)
+  SET_VAR(playtime_stats, PlaytimeStats)
+  SET_VAR(total_only, TotalOnly)
+#undef SET
+  if (!info.search_text.empty())
+    FUNC(SetSearchText)(m_ptr, handle, info.search_text.c_str());
 }
 
 UGC::QueryId UGC::createQuery(const QueryInfo& info, vector<ItemId> items) {
+  CHECK(items.size() >= 1);
+
   auto handle = FUNC(CreateQueryUGCDetailsRequest)(m_ptr, items.data(), items.size());
-  CHECK(handle != k_UGCQueryHandleInvalid);
+  CHECK(handle != invalidHandle);
   // TODO: properly handle errors
 
   setupQuery(handle, info);
-
-  auto result = FUNC(SendQueryUGCRequest)(m_ptr, handle);
-  CHECK(result != k_uAPICallInvalid);
-  printf("Send: %lld\n", (long long int)result);
-
-  auto id = allocQuery(handle, info);
-  m_queries[id].m_items = std::move(items);
-  return id;
+  auto qid = allocQuery(handle, info);
+  m_queries[qid].items = std::move(items);
+  m_queries[qid].call = FUNC(SendQueryUGCRequest)(m_ptr, handle);
+  return qid;
 }
 
 UGC::QueryId UGC::createQuery(const QueryInfo& info, EUGCQuery type, EUGCMatchingUGCType matching_type, unsigned app_id,
@@ -104,42 +97,102 @@ UGC::QueryId UGC::createQuery(const QueryInfo& info, EUGCQuery type, EUGCMatchin
   CHECK(page_id >= 1);
   auto handle = FUNC(CreateQueryAllUGCRequest)(m_ptr, type, matching_type, app_id, app_id, page_id);
   CHECK(handle != k_UGCQueryHandleInvalid);
+  // TODO: properly handle errors
 
   setupQuery(handle, info);
 
-  auto result = FUNC(SendQueryUGCRequest)(m_ptr, handle);
-  CHECK(result != k_uAPICallInvalid);
-  printf("Send: %lld\n", (long long int)result);
-
-  auto id = allocQuery(handle, info);
-  return id;
+  auto qid = allocQuery(handle, info);
+  m_queries[qid].call = FUNC(SendQueryUGCRequest)(m_ptr, handle);
+  return qid;
 }
 
-UGCQuery& UGC::readQuery(QueryId id) {
-  CHECK(m_queries[id].isValid() && m_queries[id].isCompleted());
-  return m_queries[id];
+void UGC::updateQueries(Utils& utils) {
+  for (int n = 0; n < m_queries.size(); n++) {
+    auto& query = m_queries[n];
+    if (!query.valid())
+      continue;
+
+    if (query.call.status == QStatus::pending)
+      query.call.update(utils);
+  }
 }
 
-bool UGC::isCompleted(QueryId id) const {
-  CHECK(m_queries[id].isValid());
-  return m_queries[id].isCompleted();
+void UGC::finishQuery(QueryId qid) {
+  CHECK(isQueryValid(qid));
+  FUNC(ReleaseQueryUGCRequest)(m_ptr, m_queries[qid].handle);
+  m_queries[qid].handle = invalidHandle;
 }
 
-void UGC::finishQuery(QueryId id) {
-  CHECK(m_queries[id].isValid());
-  FUNC(ReleaseQueryUGCRequest)(m_ptr, m_queries[id].m_handle);
-  m_queries[id].m_handle = k_UGCQueryHandleInvalid;
+bool UGC::isQueryValid(QueryId qid) const {
+  return m_queries[qid].valid();
 }
 
-void UGC::onQueryCompleted(SteamUGCQueryCompleted_t* result) {
-  printf("Query completed: %llu\n", (unsigned long long)result->m_handle);
+QueryStatus UGC::queryStatus(QueryId qid) const {
+  CHECK(isQueryValid(qid));
+  return m_queries[qid].call.status;
+}
 
-  for (auto& query : m_queries)
-    if (query.m_handle == result->m_handle) {
-      //TODO: add member function?
-      query.m_num_results = result->m_unNumResultsReturned;
-      query.m_total_results = result->m_unTotalMatchingResults;
-      query.m_is_completed = true;
-    }
+const QueryInfo& UGC::queryInfo(QueryId qid) const {
+  CHECK(isQueryValid(qid));
+  return m_queries[qid].info;
+}
+
+QueryResults UGC::queryResults(QueryId qid) const {
+  CHECK(queryStatus(qid) == QStatus::completed);
+  auto& result = m_queries[qid].call.result();
+  return {(int)result.m_unNumResultsReturned, (int)result.m_unTotalMatchingResults};
+}
+
+const char* UGC::queryError(QueryId qid) const {
+  CHECK(isQueryValid(qid));
+  auto& call = m_queries[qid].call;
+  if (call.status == QStatus::failed)
+    return call.failText();
+  return "";
+}
+
+QueryDetails UGC::queryDetails(QueryId qid, int index) {
+  CHECK(queryStatus(qid) == QStatus::completed);
+  auto& query = m_queries[qid];
+
+  QueryDetails out;
+  auto result = FUNC(GetQueryUGCResult)(m_ptr, query.handle, index, &out);
+  CHECK(result);
+  // TODO: properly handle errors
+  return out;
+}
+
+string UGC::queryMetadata(QueryId qid, int index) {
+  CHECK(queryStatus(qid) == QStatus::completed);
+  auto& query = m_queries[qid];
+  CHECK(query.info.metadata);
+
+  char buffer[4096];
+  auto result = FUNC(GetQueryUGCMetadata)(m_ptr, query.handle, index, buffer, sizeof(buffer) - 1);
+  buffer[sizeof(buffer) - 1] = 0;
+  CHECK(result);
+  return buffer;
+}
+
+vector<pair<string, string>> UGC::queryKeyValueTags(QueryId qid, int index) {
+  vector<pair<string, string>> out;
+
+  CHECK(queryStatus(qid) == QStatus::completed);
+  auto& query = m_queries[qid];
+  CHECK(query.info.key_value_tags);
+
+  char buf1[4096], buf2[4096];
+  auto count = FUNC(GetQueryUGCNumKeyValueTags)(m_ptr, query.handle, index);
+
+  out.resize(count);
+  for (unsigned n = 0; n < count; n++) {
+    auto result =
+        FUNC(GetQueryUGCKeyValueTag)(m_ptr, query.handle, index, n, buf1, sizeof(buf1) - 1, buf2, sizeof(buf2) - 1);
+    CHECK(result);
+    buf1[sizeof(buf1) - 1] = 0;
+    buf2[sizeof(buf2) - 1] = 0;
+    out[n] = make_pair(buf1, buf2);
+  }
+  return out;
 }
 }

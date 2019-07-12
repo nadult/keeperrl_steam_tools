@@ -119,8 +119,37 @@ void printFiles(string path_str, int indent, bool with_subdirs) {
   }
 }
 
+string shortenDesc(string desc, int max_len = 60) {
+  if ((int)desc.size() > max_len)
+    desc.resize(max_len);
+  auto it = desc.find("\n");
+  if (it != string::npos)
+    desc.resize(it);
+  return desc;
+}
+
+void printQueryInfo(steam::UGC& ugc, steam::UGC::QueryId qid) {
+  auto& info = ugc.queryInfo(qid);
+  auto status = ugc.queryStatus(qid);
+
+  if (status == QueryStatus::completed) {
+    auto results = ugc.queryResults(qid);
+    printf("Query completed with %d / %d results\n", results.count, results.total);
+
+    for (int n = 0; n < results.count; n++) {
+      auto details = ugc.queryDetails(qid, n);
+      printf("  %d: %s\n", n, details.m_rgchTitle);
+      string desc = shortenDesc(details.m_rgchDescription);
+      printf("  desc: %s\n\n", desc.c_str());
+    }
+  } else if (status == QueryStatus::failed) {
+    printf("Query failed: %s\n", ugc.queryError(qid));
+  }
+}
+
 void printWorkshopItems(steam::Client& client) {
   auto& ugc = client.ugc();
+  auto utils = client.utils();
 
   auto items = ugc.subscribedItems();
   for (auto item : items) {
@@ -140,26 +169,24 @@ void printWorkshopItems(steam::Client& client) {
   }
 
   steam::QueryInfo qinfo;
-  qinfo.metadata = true;
+  qinfo.key_value_tags = true;
+  qinfo.long_description = true;
   auto qid = ugc.createQuery(qinfo, items);
 
   int num_retries = 20;
   for (int r = 0; r < num_retries; r++) {
     steam::runCallbacks();
-    if (ugc.isCompleted(qid)) {
-      auto& query = ugc.readQuery(qid);
-      printf("Query completed with %d / %d results\n", query.numResults(), query.totalResults());
+    ugc.updateQueries(utils);
 
-      for (int n = 0; n < query.numResults(); n++)
-        printf("  Meta %d: %s\n", n, query.metadata(n).c_str());
+    if (ugc.queryStatus(qid) != QueryStatus::pending) {
+      printQueryInfo(ugc, qid);
       break;
     }
     usleep(100 * 1000);
   }
 
-  if (!ugc.isCompleted(qid)) {
-    printf("Query failed!\n");
-  }
+  if (ugc.queryStatus(qid) == QueryStatus::pending)
+    printf("Query takes too long!\n");
   ugc.finishQuery(qid);
 }
 
@@ -168,22 +195,25 @@ void printAllWorkshopItems(steam::Client& client) {
   auto utils = client.utils();
 
   steam::QueryInfo qinfo;
-  qinfo.metadata = true;
+  //qinfo.metadata = true;
+  qinfo.only_ids = true;
+  qinfo.key_value_tags = true;
   auto qid = ugc.createQuery(qinfo, k_EUGCQuery_RankedByVote, k_EUGCMatchingUGCType_All, utils.appId(), 1);
 
   int num_retries = 20;
   for (int r = 0; r < num_retries; r++) {
     steam::runCallbacks();
-    if (ugc.isCompleted(qid)) {
-      auto& query = ugc.readQuery(qid);
-      printf("Query completed with %d / %d results\n", query.numResults(), query.totalResults());
-      for (int n = 0; n < query.numResults(); n++)
-        printf("  Meta %d: %s\n", n, query.metadata(n).c_str());
+    ugc.updateQueries(utils);
+
+    if (ugc.queryStatus(qid) != QueryStatus::pending) {
+      printQueryInfo(ugc, qid);
       break;
     }
     usleep(100 * 1000);
   }
 
+  if (ugc.queryStatus(qid) == QueryStatus::pending)
+    printf("Query takes too long!\n");
   ugc.finishQuery(qid);
 }
 

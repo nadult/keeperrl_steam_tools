@@ -3,18 +3,17 @@
 #include "steam_base.h"
 #include <steam/isteamutils.h>
 
-// TODO: should be inside namespace
-RICH_ENUM(CallResultStatus, pending, completed, failed);
-
 namespace steam {
 
 // TODO: cleanup
 struct CallResultBase {
-  using Status = CallResultStatus;
+  using Status = QueryStatus;
+
   void update(Utils&, void*, int, int);
+  const char* failText() const;
 
   unsigned long long handle = 0;
-  Status status = Status::pending;
+  Status status = Status::invalid;
   ESteamAPICallFailure failure = k_ESteamAPICallFailureNone;
 };
 
@@ -22,10 +21,24 @@ template <class T> class CallResult : public CallResultBase {
   public:
   CallResult(unsigned long long handle) {
     this->handle = handle;
+    status = Status::pending;
+    if (handle == k_uAPICallInvalid) {
+      status = Status::failed;
+      failure = k_ESteamAPICallFailureInvalidHandle;
+    }
+  }
+  CallResult() {
   }
 
   void update(Utils& utils) {
     CallResultBase::update(utils, &result_, sizeof(result_), T::k_iCallback);
+  }
+
+  explicit operator bool() const {
+    return status != Status::invalid;
+  }
+  void clear() {
+    status = Status::invalid;
   }
 
   bool isCompleted() const {

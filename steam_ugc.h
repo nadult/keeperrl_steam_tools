@@ -1,6 +1,7 @@
 #pragma once
 
 #include "steam_base.h"
+#include "steam_utils.h"
 #include <steam/isteamugc.h>
 
 namespace steam {
@@ -18,58 +19,30 @@ struct InstallInfo {
   unsigned time_stamp;
 };
 
+// TODO: fix var names
 struct QueryInfo {
   string search_text;
   unsigned playtime_stats_days = 0;
-  bool long_description = false;
+  bool additional_previews = false;
+  bool children = false;
   bool key_value_tags = false;
+  bool long_description = false;
   bool metadata = false;
   bool only_ids = false;
-  bool children = false;
-  bool additional_previews = false;
+  bool playtime_stats = false;
   bool total_only = false;
 };
 
-class UGCQuery {
-  public:
-  using Handle = UGCQueryHandle_t;
-  using Info = QueryInfo;
-
-  ~UGCQuery();
-
-  bool isCompleted() const {
-    return m_is_completed;
-  }
-  bool isValid() const {
-    return m_handle != k_UGCQueryHandleInvalid;
-  }
-
-  int numResults() const {
-    return m_num_results;
-  }
-  int totalResults() const {
-    return m_total_results;
-  }
-
-  string metadata(int result_id) const;
-
-  private:
-  UGCQuery(intptr_t);
-  friend class UGC;
-
-  intptr_t m_ugc;
-  vector<ItemId> m_items;
-  QueryInfo m_info;
-  Handle m_handle = k_UGCQueryHandleInvalid;
-  bool m_is_completed = false;
-  int m_num_results = 0, m_total_results = 0;
+struct QueryResults {
+  int count, total;
 };
 
-class UGC {
-  public:
-  using Query = UGCQuery;
-  using QueryId = unsigned;
+using QueryDetails = SteamUGCDetails_t;
 
+class UGC {
+  UGC(intptr_t);
+
+  public:
   UGC(const UGC&) = delete;
   void operator=(const UGC&) = delete;
   ~UGC();
@@ -84,25 +57,52 @@ class UGC {
   DownloadInfo downloadInfo(ItemId) const;
   InstallInfo installInfo(ItemId) const;
 
+  // --------- Queries --------------------------------------------------------
+  // --------------------------------------------------------------------------
+
+  using QueryId = int;
+
   QueryId createQuery(const QueryInfo&, vector<ItemId>);
   QueryId createQuery(const QueryInfo&, EUGCQuery, EUGCMatchingUGCType, unsigned app_id, int page_id);
 
-  bool isCompleted(QueryId) const;
-  Query& readQuery(QueryId);
+  void updateQueries(Utils&);
   void finishQuery(QueryId);
 
+  // TODO: how to report errors?
+  bool isQueryValid(QueryId) const;
+  QueryStatus queryStatus(QueryId) const;
+  const QueryInfo& queryInfo(QueryId) const;
+  QueryResults queryResults(QueryId) const;
+  const char* queryError(QueryId) const;
+  QueryDetails queryDetails(QueryId, int index);
+  string queryMetadata(QueryId, int index);
+  vector<pair<string, string>> queryKeyValueTags(QueryId, int index);
+
+  // --------- Internal stuff -------------------------------------------------
+  // --------------------------------------------------------------------------
+
   private:
-  UGC(intptr_t);
-  QueryId allocQuery(Query::Handle, const QueryInfo&);
-  void setupQuery(Query::Handle, const QueryInfo&);
+  using QHandle = UGCQueryHandle_t;
+  using QStatus = QueryStatus;
+  static constexpr QHandle invalidHandle = k_UGCQueryHandleInvalid;
+
+  using QueryCall = CallResult<SteamUGCQueryCompleted_t>;
+  struct QueryData {
+    bool valid() const {
+      return handle != invalidHandle;
+    }
+
+    QHandle handle = invalidHandle;
+    vector<ItemId> items;
+    QueryInfo info;
+    QueryCall call;
+  };
+
+  QueryId allocQuery(QHandle, const QueryInfo&);
+  void setupQuery(QHandle, const QueryInfo&);
 
   friend class Client;
-
-  // TODO: is it safe on windows?
-  STEAM_CALLBACK_MANUAL(UGC, onQueryCompleted, SteamUGCQueryCompleted_t, m_query_completed);
-
-  vector<UGCQuery> m_queries;
-
+  vector<QueryData> m_queries;
   intptr_t m_ptr;
 };
 }
