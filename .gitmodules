@@ -1,0 +1,3 @@
+[submodule "keeperrl"]
+	path = keeperrl
+	url = https://github.com/nadult/keeperrl.git

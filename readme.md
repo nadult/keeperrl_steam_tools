@@ -1,4 +1,4 @@
-# steam_tools
+# steam_tools for KeeperRL
 
 ## Building
 

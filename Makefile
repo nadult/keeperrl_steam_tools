@@ -25,13 +25,16 @@ endif
 
 all: $(NAME)
 
-CFLAGS+=-I./ -I steamworks/public/ -fmax-errors=20 -g -std=c++1y
+INCLUDES=-I ./ -I keeperrl/ -I keeperrl/extern/ -I steamworks/public/ 
+CFLAGS+=$(INCLUDES) -fmax-errors=20 -g -std=c++1y -pthread
 LDFLAGS+=-L $(LIB_DIR) -l $(LIB_NAME)
 
 OBJDIR = obj
 _dummy := $(shell [ -d $(OBJDIR) ] || mkdir -p $(OBJDIR))
+_dummy := $(shell [ -d $(OBJDIR)/keeperrl ] || mkdir -p $(OBJDIR)/keeperrl)
 
-SRCS = $(shell ls -t *.cpp)
+KEEPER_SRCS=debug util directory_path file_path
+SRCS = $(shell ls -t *.cpp) $(KEEPER_SRCS:%=keeperrl/%.cpp)
 
 OBJS = $(addprefix $(OBJDIR)/,$(SRCS:.cpp=.o))
 DEPS = $(addprefix $(OBJDIR)/,$(SRCS:.cpp=.d))
@@ -47,5 +50,11 @@ clean:
 	$(RM) $(OBJDIR)/*.d
 	$(RM) $(NAME)
 	-rmdir $(OBJDIR)
+
+print-vars:
+	@echo SRCS: $(SRCS)
+	@echo OBJS: $(OBJS)
+	@echo CFLAGS: $(CFLAGS)
+	@echo LDFLAGS: $(LDFLAGS)
 
 -include $(DEPS)
