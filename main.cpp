@@ -207,6 +207,7 @@ int main(int argc, char** argv) {
   }
 
   steam::Client client;
+  client.numberOfCurrentPlayers();
 
   for (int n = 1; n < argc; n++) {
     string option = argv[n];
@@ -226,6 +227,13 @@ int main(int argc, char** argv) {
       return 0;
     }
   }
+
+  steam::runCallbacks();
+
+  if (auto nocp = client.numberOfCurrentPlayers())
+    printf("Number of players: %d\n", *nocp);
+  else
+    printf("Couldn't get nr of players...\n");
 
   return 0;
 }

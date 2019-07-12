@@ -24,4 +24,22 @@ vector<uint8> Utils::imageData(int image_id) const {
 unsigned Utils::appId() const {
   return FUNC(GetAppID)(m_ptr);
 }
+
+void CallResultBase::update(Utils& utils, void* data, int data_size, int ident) {
+  using Status = CallResultStatus;
+  bool failed = false;
+  if (status == Status::pending) {
+    auto is_completed = FUNC(IsAPICallCompleted)(utils.m_ptr, handle, &failed);
+    if (!failed && is_completed) {
+      auto result = FUNC(GetAPICallResult)(utils.m_ptr, handle, data, data_size, ident, &failed);
+      if (result && !failed)
+        status = Status::completed;
+    }
+
+    if (failed) {
+      status = Status::failed;
+      failure = FUNC(GetAPICallFailureReason)(utils.m_ptr, handle);
+    }
+  }
+}
 }

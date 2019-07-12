@@ -8,7 +8,8 @@
 
 #include <cassert>
 
-#define FUNC(name, ...) SteamAPI_ISteamClient_##name
+#define FUNC(name) SteamAPI_ISteamClient_##name
+#define US_FUNC(name) SteamAPI_ISteamUserStats_##name
 
 namespace steam {
 
@@ -25,6 +26,9 @@ Client::Client() {
   m_ptr = (intptr_t)::SteamClient();
   m_pipe = FUNC(CreateSteamPipe)(m_ptr);
   m_user = FUNC(ConnectToGlobalUser)(m_ptr, m_pipe);
+
+  m_user_stats = (intptr_t)FUNC(GetISteamUserStats)(m_ptr, m_user, m_pipe, STEAMUSERSTATS_INTERFACE_VERSION);
+  m_utils = (intptr_t)FUNC(GetISteamUtils)(m_ptr, m_pipe, STEAMUTILS_INTERFACE_VERSION);
 }
 Client::~Client() {
   m_ugc.reset();
@@ -57,5 +61,25 @@ UGC& Client::ugc() {
     m_ugc.reset(new UGC((intptr_t)ptr));
   }
   return *m_ugc.get();
+}
+
+optional<int> Client::numberOfCurrentPlayers() {
+  optional<int> out;
+  if (!m_nocp)
+    m_nocp.emplace(US_FUNC(GetNumberOfCurrentPlayers)(m_user_stats));
+  else {
+    auto ut = utils(); // TODO: fix it
+    m_nocp->update(ut);
+
+    if (!m_nocp->isPending()) {
+      if (m_nocp->isCompleted()) {
+        out = m_nocp->result().m_cPlayers;
+      }
+      // TODO: handle errors
+      m_nocp = none;
+    }
+  }
+
+  return out;
 }
 }
