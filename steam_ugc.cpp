@@ -8,9 +8,7 @@ namespace steam {
 
 UGC::UGC(intptr_t ptr) : ptr(ptr) {
 }
-
-UGC::~UGC() {
-}
+UGC::~UGC() = default;
 
 int UGC::numSubscribedItems() const {
   return (int)FUNC(GetNumSubscribedItems)(ptr);
@@ -106,14 +104,14 @@ UGC::QueryId UGC::createQuery(const QueryInfo& info, EUGCQuery type, EUGCMatchin
   return qid;
 }
 
-void UGC::updateQueries(Utils& utils) {
+void UGC::updateQueries() {
   for (int n = 0; n < queries.size(); n++) {
     auto& query = queries[n];
     if (!query.valid())
       continue;
 
     if (query.call.status == QStatus::pending)
-      query.call.update(utils);
+      query.call.update();
   }
 }
 

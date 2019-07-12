@@ -47,6 +47,18 @@ struct Client::Impl {
 
 static Client* s_instance = nullptr;
 
+#define IFACE_INSTANCE(name, funcName)                                                                                 \
+  name& name::instance() {                                                                                             \
+    return Client::instance().funcName();                                                                              \
+  }
+
+IFACE_INSTANCE(Friends, friends)
+IFACE_INSTANCE(User, user)
+IFACE_INSTANCE(UGC, ugc)
+IFACE_INSTANCE(Utils, utils)
+
+#undef IFACE_INSTANCE
+
 Client& Client::instance() {
   CHECK(s_instance && "Steam client not available");
   return *s_instance;
@@ -89,9 +101,7 @@ optional<int> Client::numberOfCurrentPlayers() {
   if (!impl->nocp)
     impl->nocp = US_FUNC(GetNumberOfCurrentPlayers)(ifaces->userStats);
   else {
-    auto ut = utils(); // TODO: fix it
-    impl->nocp.update(ut);
-
+    impl->nocp.update();
     if (!impl->nocp.isPending()) {
       if (impl->nocp.isCompleted()) {
         out = impl->nocp.result().m_cPlayers;

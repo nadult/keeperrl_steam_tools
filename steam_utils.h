@@ -9,7 +9,7 @@ namespace steam {
 struct CallResultBase {
   using Status = QueryStatus;
 
-  void update(Utils&, void*, int, int);
+  void update(void*, int, int);
   const char* failText() const;
 
   unsigned long long handle = 0;
@@ -30,8 +30,8 @@ template <class T> class CallResult : public CallResultBase {
   CallResult() {
   }
 
-  void update(Utils& utils) {
-    CallResultBase::update(utils, &result_, sizeof(result_), T::k_iCallback);
+  void update() {
+    CallResultBase::update(&result_, sizeof(result_), T::k_iCallback);
   }
 
   explicit operator bool() const {
@@ -58,7 +58,9 @@ template <class T> class CallResult : public CallResultBase {
 };
 
 class Utils {
-  public:
+  STEAM_IFACE_DECL(Utils);
+  friend struct CallResultBase;
+
   // TODO: return expected ?
   pair<int, int> imageSize(int image_id) const;
   vector<uint8> imageData(int image_id) const;
@@ -66,12 +68,5 @@ class Utils {
   unsigned appId() const;
 
   void updateCallResult(CallResultBase&, void* data, int data_size, int ident);
-
-  private:
-  Utils(intptr_t);
-  friend class Client;
-  friend struct CallResultBase; //TODO: clenaup
-
-  intptr_t m_ptr;
 };
 }

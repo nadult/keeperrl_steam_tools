@@ -5,13 +5,8 @@
 
 namespace steam {
 class User {
-  public:
+  STEAM_IFACE_DECL(User)
+
   CSteamID id() const;
-
-  private:
-  User(intptr_t);
-  friend class Client;
-
-  intptr_t m_ptr;
 };
 }

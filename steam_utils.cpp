@@ -5,20 +5,21 @@
 
 namespace steam {
 
-void CallResultBase::update(Utils& utils, void* data, int data_size, int ident) {
+void CallResultBase::update(void* data, int data_size, int ident) {
   using Status = QueryStatus;
   bool failed = false;
   if (status == Status::pending) {
-    auto is_completed = FUNC(IsAPICallCompleted)(utils.m_ptr, handle, &failed);
+    auto& utils = Utils::instance();
+    auto is_completed = FUNC(IsAPICallCompleted)(utils.ptr, handle, &failed);
     if (!failed && is_completed) {
-      auto result = FUNC(GetAPICallResult)(utils.m_ptr, handle, data, data_size, ident, &failed);
+      auto result = FUNC(GetAPICallResult)(utils.ptr, handle, data, data_size, ident, &failed);
       if (result && !failed)
         status = Status::completed;
     }
 
     if (failed) {
       status = Status::failed;
-      failure = FUNC(GetAPICallFailureReason)(utils.m_ptr, handle);
+      failure = FUNC(GetAPICallFailureReason)(utils.ptr, handle);
     }
   }
 }
@@ -37,12 +38,13 @@ const char* CallResultBase::failText() const {
   return "API call failure: unknown";
 }
 
-Utils::Utils(intptr_t ptr) : m_ptr(ptr) {
+Utils::Utils(intptr_t ptr) : ptr(ptr) {
 }
+Utils::~Utils() = default;
 
 pair<int, int> Utils::imageSize(int image_id) const {
   uint32_t w = 0, h = 0;
-  if (!FUNC(GetImageSize)(m_ptr, image_id, &w, &h))
+  if (!FUNC(GetImageSize)(ptr, image_id, &w, &h))
     CHECK(false);
   return {w, h};
 }
@@ -50,11 +52,11 @@ pair<int, int> Utils::imageSize(int image_id) const {
 vector<uint8> Utils::imageData(int image_id) const {
   auto size = imageSize(image_id);
   vector<uint8> out(size.first * size.second * 4);
-  if (!FUNC(GetImageRGBA)(m_ptr, image_id, out.data(), out.size()))
+  if (!FUNC(GetImageRGBA)(ptr, image_id, out.data(), out.size()))
     CHECK(false);
   return out;
 }
 unsigned Utils::appId() const {
-  return FUNC(GetAppID)(m_ptr);
+  return FUNC(GetAppID)(ptr);
 }
 }

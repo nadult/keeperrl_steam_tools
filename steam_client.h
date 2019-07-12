@@ -2,9 +2,6 @@
 
 #include "steam_base.h"
 
-// TODO: refki pomiędzy klientem a innymi interfejsami?
-// TODO: wymyśleć lepszy interfejs
-
 namespace steam {
 
 class Client {

@@ -149,7 +149,6 @@ void printQueryInfo(steam::UGC& ugc, steam::UGC::QueryId qid) {
 
 void printWorkshopItems(steam::Client& client) {
   auto& ugc = client.ugc();
-  auto utils = client.utils();
 
   auto items = ugc.subscribedItems();
   for (auto item : items) {
@@ -176,7 +175,7 @@ void printWorkshopItems(steam::Client& client) {
   int num_retries = 20;
   for (int r = 0; r < num_retries; r++) {
     steam::runCallbacks();
-    ugc.updateQueries(utils);
+    ugc.updateQueries();
 
     if (ugc.queryStatus(qid) != QueryStatus::pending) {
       printQueryInfo(ugc, qid);
@@ -192,7 +191,7 @@ void printWorkshopItems(steam::Client& client) {
 
 void printAllWorkshopItems(steam::Client& client) {
   auto& ugc = client.ugc();
-  auto utils = client.utils();
+  auto& utils = client.utils();
 
   steam::QueryInfo qinfo;
   //qinfo.metadata = true;
@@ -203,7 +202,7 @@ void printAllWorkshopItems(steam::Client& client) {
   int num_retries = 20;
   for (int r = 0; r < num_retries; r++) {
     steam::runCallbacks();
-    ugc.updateQueries(utils);
+    ugc.updateQueries();
 
     if (ugc.queryStatus(qid) != QueryStatus::pending) {
       printQueryInfo(ugc, qid);

@@ -5,7 +5,8 @@
 
 namespace steam {
 class Friends {
-  public:
+  STEAM_IFACE_DECL(Friends)
+
   // TODO: wrap CSteamID somehow?
   // TODO: add tagged id type?
 
@@ -16,11 +17,5 @@ class Friends {
 
   // TODO: name it differently to signify that it involves a callback?
   int avatar(CSteamID friend_id, int size) const;
-
-  private:
-  Friends(intptr_t);
-  friend class Client;
-
-  intptr_t m_ptr;
 };
 }

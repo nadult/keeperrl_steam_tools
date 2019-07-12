@@ -39,12 +39,7 @@ struct QueryResults {
 using QueryDetails = SteamUGCDetails_t;
 
 class UGC {
-  UGC(intptr_t);
-
-  public:
-  UGC(const UGC&) = delete;
-  void operator=(const UGC&) = delete;
-  ~UGC();
+  STEAM_IFACE_DECL(UGC);
 
   int numSubscribedItems() const;
 
@@ -64,7 +59,7 @@ class UGC {
   QueryId createQuery(const QueryInfo&, vector<ItemId>);
   QueryId createQuery(const QueryInfo&, EUGCQuery, EUGCMatchingUGCType, unsigned app_id, int page_id);
 
-  void updateQueries(Utils&);
+  void updateQueries();
   void finishQuery(QueryId);
 
   // TODO: how to report errors?
@@ -100,8 +95,6 @@ class UGC {
   QueryId allocQuery(QHandle, const QueryInfo&);
   void setupQuery(QHandle, const QueryInfo&);
 
-  friend class Client;
   vector<QueryData> queries;
-  intptr_t ptr;
 };
 }

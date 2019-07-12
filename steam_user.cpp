@@ -5,10 +5,11 @@
 
 namespace steam {
 
-User::User(intptr_t ptr) : m_ptr(ptr) {
+User::User(intptr_t ptr) : ptr(ptr) {
 }
+User::~User() = default;
 
 CSteamID User::id() const {
-  return FUNC(GetSteamID)(m_ptr);
+  return FUNC(GetSteamID)(ptr);
 }
 }
