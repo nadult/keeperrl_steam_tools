@@ -3,8 +3,6 @@
 #include "steam_base.h"
 #include <steam/isteamutils.h>
 
-using namespace std;
-
 namespace steam {
 
 class Utils {

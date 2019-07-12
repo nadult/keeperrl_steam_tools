@@ -1,20 +1,19 @@
 #include <stdio.h>
-#include <string>
-#include <vector>
 #include <unistd.h>
+
+#include "keeperrl/directory_path.h"
+#include "keeperrl/file_path.h"
 
 #include "steam_friends.h"
 #include "steam_client.h"
 #include "steam_ugc.h"
 #include "steam_utils.h"
 
-using namespace std;
-
 void printFriends(const steam::Client& client) {
   auto friends = client.friends();
 
   auto ids = friends.ids();
-  for (unsigned n = 0; n < ids.size(); n++)
+  for (int n = 0; n < ids.size(); n++)
     printf("Friend #%d: %s [%llu]\n", n, friends.name(ids[n]).c_str(), ids[n].ConvertToUint64());
   fflush(stdout);
 }
@@ -43,14 +42,14 @@ void printFriendAvatars(const steam::Client& client) {
 
   auto ids = friends.ids();
   vector<int> results(ids.size(), -1);
-  vector<bool> completed(ids.size(), false);
+  vector<char> completed(ids.size(), false);
 
-  for (size_t n = 0; n < ids.size(); n++)
+  for (int n = 0; n < ids.size(); n++)
     results[n] = friends.avatar(ids[n], 0);
 
-  unsigned num_completed = 0;
-  for (unsigned r = 0; r < 100 && num_completed < ids.size(); r++) {
-    for (unsigned n = 0; n < ids.size(); n++) {
+  int num_completed = 0;
+  for (int r = 0; r < 100 && num_completed < ids.size(); r++) {
+    for (int n = 0; n < ids.size(); n++) {
       if (completed[n])
         continue;
 

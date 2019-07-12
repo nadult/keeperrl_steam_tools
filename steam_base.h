@@ -1,9 +1,7 @@
 #pragma once
 
 #include "steam/steamclientpublic.h"
-
-#include <vector>
-#include <string>
+#include "keeperrl/util.h"
 
 #ifndef CHECK
 #include <cassert>
@@ -11,9 +9,6 @@
 #endif
 
 namespace steam {
-
-using std::string;
-using std::vector;
 
 class Client;
 class Friends;

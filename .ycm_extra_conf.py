@@ -13,7 +13,7 @@ flags = [
 '-isystem', '/usr/local/include',
 '-isystem', '/usr/include',
 
-'-I./', '-Isteamworks/public/',
+'-I./', '-Ikeeperrl/', '-Ikeeperrl/extern/', '-Isteamworks/public/',
 ]
 
 # Set this to the absolute path to the folder (NOT the file!) containing the

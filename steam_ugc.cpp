@@ -68,7 +68,7 @@ UGC::QueryId UGC::createQuery(const QueryInfo& info, vector<ItemId> items) {
   CHECK(result != k_uAPICallInvalid);
 
   int index = -1;
-  for (unsigned n = 0; n < m_queries.size(); n++)
+  for (int n = 0; n < m_queries.size(); n++)
     if (!m_queries[n].isValid()) {
       index = n;
       break;
@@ -82,7 +82,7 @@ UGC::QueryId UGC::createQuery(const QueryInfo& info, vector<ItemId> items) {
   query.m_handle = id;
   query.m_is_completed = false;
   query.m_info = info;
-  query.m_items = move(items);
+  query.m_items = std::move(items);
   return index;
 }
 

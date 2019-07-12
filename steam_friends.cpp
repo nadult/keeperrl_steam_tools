@@ -25,7 +25,7 @@ string Friends::name(CSteamID friend_id) const {
 }
 
 int Friends::avatar(CSteamID friend_id, int size) const {
-  assert(size >= 0 && size <= 2);
+  CHECK(size >= 0 && size <= 2);
   if (size == 0)
     return FUNC(GetSmallFriendAvatar)(m_ptr, friend_id);
   else if (size == 1)
