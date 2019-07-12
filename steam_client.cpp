@@ -6,7 +6,8 @@
 #include "steam_ugc.h"
 #include "steam_utils.h"
 
-#include <cassert>
+#include <steam/isteamclient.h>
+#include <steam/isteamuserstats.h>
 
 #define FUNC(name) SteamAPI_ISteamClient_##name
 #define US_FUNC(name) SteamAPI_ISteamUserStats_##name
@@ -21,62 +22,82 @@ void runCallbacks() {
   SteamAPI_RunCallbacks();
 }
 
-Client::Client() {
-  // TODO: handle errors, use Expected<>
-  m_ptr = (intptr_t)::SteamClient();
-  m_pipe = FUNC(CreateSteamPipe)(m_ptr);
-  m_user = FUNC(ConnectToGlobalUser)(m_ptr, m_pipe);
-
-  m_user_stats = (intptr_t)FUNC(GetISteamUserStats)(m_ptr, m_user, m_pipe, STEAMUSERSTATS_INTERFACE_VERSION);
-  m_utils = (intptr_t)FUNC(GetISteamUtils)(m_ptr, m_pipe, STEAMUTILS_INTERFACE_VERSION);
-}
-Client::~Client() {
-  m_ugc.reset();
-  FUNC(ReleaseUser)(m_ptr, m_pipe, m_user);
-  FUNC(BReleaseSteamPipe)(m_ptr, m_pipe);
-}
-
-Friends Client::friends() const {
-  auto ptr = FUNC(GetISteamFriends)(m_ptr, m_user, m_pipe, STEAMFRIENDS_INTERFACE_VERSION);
-  CHECK(ptr);
-  return (intptr_t)ptr;
-}
-
-User Client::user() const {
-  auto ptr = FUNC(GetISteamUser)(m_ptr, m_user, m_pipe, STEAMUSER_INTERFACE_VERSION);
-  CHECK(ptr);
-  return (intptr_t)ptr;
-}
-
-Utils Client::utils() const {
-  auto ptr = FUNC(GetISteamUtils)(m_ptr, m_pipe, STEAMUTILS_INTERFACE_VERSION);
-  CHECK(ptr);
-  return (intptr_t)ptr;
-}
-
-UGC& Client::ugc() {
-  if (!m_ugc) {
-    auto ptr = FUNC(GetISteamUGC)(m_ptr, m_user, m_pipe, STEAMUGC_INTERFACE_VERSION);
-    CHECK(ptr);
-    m_ugc.reset(new UGC((intptr_t)ptr));
+struct Client::Ifaces {
+  Ifaces(intptr_t client, HSteamPipe pipeHandle, HSteamUser userHandle)
+      : userStats((intptr_t)FUNC(GetISteamUserStats)(client, userHandle, pipeHandle, STEAMUSERSTATS_INTERFACE_VERSION)),
+        friends((intptr_t)FUNC(GetISteamFriends)(client, userHandle, pipeHandle, STEAMFRIENDS_INTERFACE_VERSION)),
+        user((intptr_t)FUNC(GetISteamUser)(client, userHandle, pipeHandle, STEAMUSER_INTERFACE_VERSION)),
+        ugc((intptr_t)FUNC(GetISteamUGC)(client, userHandle, pipeHandle, STEAMUGC_INTERFACE_VERSION)),
+        utils((intptr_t)FUNC(GetISteamUtils)(client, pipeHandle, STEAMUTILS_INTERFACE_VERSION)) {
   }
-  return *m_ugc.get();
+
+  intptr_t userStats;
+  Friends friends;
+  User user;
+  UGC ugc;
+  Utils utils;
+};
+
+struct Client::Impl {
+  intptr_t client;
+  HSteamPipe pipeHandle;
+  HSteamUser userHandle;
+  CallResult<NumberOfCurrentPlayers_t> nocp;
+};
+
+static Client* s_instance = nullptr;
+
+Client& Client::instance() {
+  CHECK(s_instance && "Steam client not available");
+  return *s_instance;
+}
+
+Client::Client() {
+  CHECK(!s_instance && "At most one steam::Client class can be alive at a time");
+  s_instance = this;
+
+  // TODO: handle errors, use Expected<>
+  auto client = (intptr_t)::SteamClient();
+  auto pipeHandle = FUNC(CreateSteamPipe)(client);
+  auto userHandle = FUNC(ConnectToGlobalUser)(client, pipeHandle);
+  impl.reset(new Impl{client, pipeHandle, userHandle});
+  ifaces.reset(new Ifaces{client, pipeHandle, userHandle});
+}
+
+Client::~Client() {
+  ifaces.reset();
+  FUNC(ReleaseUser)(impl->client, impl->pipeHandle, impl->userHandle);
+  FUNC(BReleaseSteamPipe)(impl->client, impl->pipeHandle);
+  s_instance = nullptr;
+}
+
+Friends& Client::friends() {
+  return ifaces->friends;
+}
+User& Client::user() {
+  return ifaces->user;
+}
+Utils& Client::utils() {
+  return ifaces->utils;
+}
+UGC& Client::ugc() {
+  return ifaces->ugc;
 }
 
 optional<int> Client::numberOfCurrentPlayers() {
   optional<int> out;
-  if (!m_nocp)
-    m_nocp.emplace(US_FUNC(GetNumberOfCurrentPlayers)(m_user_stats));
+  if (!impl->nocp)
+    impl->nocp = US_FUNC(GetNumberOfCurrentPlayers)(ifaces->userStats);
   else {
     auto ut = utils(); // TODO: fix it
-    m_nocp->update(ut);
+    impl->nocp.update(ut);
 
-    if (!m_nocp->isPending()) {
-      if (m_nocp->isCompleted()) {
-        out = m_nocp->result().m_cPlayers;
+    if (!impl->nocp.isPending()) {
+      if (impl->nocp.isCompleted()) {
+        out = impl->nocp.result().m_cPlayers;
       }
       // TODO: handle errors
-      m_nocp = none;
+      impl->nocp.clear();
     }
   }
 

@@ -1,43 +1,33 @@
 #pragma once
 
 #include "steam_base.h"
-#include <steam/isteamclient.h>
-#include <steam/isteamuserstats.h>
-#include "steam_utils.h"
 
-// TODO:
-// - refki pomiędzy klientem a innymi interfejsami
-// - template<> call result ?
-// - a moze po prostu zwykle funkcje?
-//
+// TODO: refki pomiędzy klientem a innymi interfejsami?
 // TODO: wymyśleć lepszy interfejs
 
 namespace steam {
+
 class Client {
   public:
   Client();
-  ~Client();
-
   Client(const Client&) = delete;
   void operator=(const Client&) = delete;
+  ~Client();
 
-  // TODO: keep these as members ?
-  Friends friends() const;
-  User user() const;
-  Utils utils() const;
+  static Client& instance();
 
+  Friends& friends();
+  User& user();
+  Utils& utils();
   UGC& ugc();
 
+  // TODO: mark callback-based functions?
   optional<int> numberOfCurrentPlayers();
 
   private:
-  // TODO: move to impl?
-  optional<CallResult<NumberOfCurrentPlayers_t>> m_nocp;
-
-  intptr_t m_ptr;
-  HSteamPipe m_pipe;
-  HSteamUser m_user;
-  intptr_t m_user_stats, m_utils;
-  unique_ptr<UGC> m_ugc;
+  struct Impl;
+  struct Ifaces;
+  unique_ptr<Impl> impl;
+  unique_ptr<Ifaces> ifaces;
 };
 }

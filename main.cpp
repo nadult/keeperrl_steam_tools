@@ -9,8 +9,8 @@
 #include "steam_ugc.h"
 #include "steam_utils.h"
 
-void printFriends(const steam::Client& client) {
-  auto friends = client.friends();
+void printFriends(steam::Client& client) {
+  auto& friends = client.friends();
 
   auto ids = friends.ids();
   for (int n = 0; n < ids.size(); n++)
@@ -36,9 +36,9 @@ void displayImage(vector<uint8_t> data, pair<int, int> size) {
   fflush(stdout);
 }
 
-void printFriendAvatars(const steam::Client& client) {
-  auto friends = client.friends();
-  auto utils = client.utils();
+void printFriendAvatars(steam::Client& client) {
+  auto& friends = client.friends();
+  auto& utils = client.utils();
 
   auto ids = friends.ids();
   vector<int> results(ids.size(), -1);
