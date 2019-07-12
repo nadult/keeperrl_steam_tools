@@ -11,6 +11,8 @@ class Utils {
   pair<int, int> imageSize(int image_id) const;
   vector<uint8> imageData(int image_id) const;
 
+  unsigned appId() const;
+
   private:
   Utils(intptr_t);
   friend class Client;

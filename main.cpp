@@ -143,8 +143,8 @@ void printWorkshopItems(steam::Client& client) {
   qinfo.metadata = true;
   auto qid = ugc.createQuery(qinfo, items);
 
-  int num_retires = 20;
-  for (int r = 0; r < num_retires; r++) {
+  int num_retries = 20;
+  for (int r = 0; r < num_retries; r++) {
     steam::runCallbacks();
     if (ugc.isCompleted(qid)) {
       auto& query = ugc.readQuery(qid);
@@ -163,8 +163,32 @@ void printWorkshopItems(steam::Client& client) {
   ugc.finishQuery(qid);
 }
 
+void printAllWorkshopItems(steam::Client& client) {
+  auto& ugc = client.ugc();
+  auto utils = client.utils();
+
+  steam::QueryInfo qinfo;
+  qinfo.metadata = true;
+  auto qid = ugc.createQuery(qinfo, k_EUGCQuery_RankedByVote, k_EUGCMatchingUGCType_All, utils.appId(), 1);
+
+  int num_retries = 20;
+  for (int r = 0; r < num_retries; r++) {
+    steam::runCallbacks();
+    if (ugc.isCompleted(qid)) {
+      auto& query = ugc.readQuery(qid);
+      printf("Query completed with %d / %d results\n", query.numResults(), query.totalResults());
+      for (int n = 0; n < query.numResults(); n++)
+        printf("  Meta %d: %s\n", n, query.metadata(n).c_str());
+      break;
+    }
+    usleep(100 * 1000);
+  }
+
+  ugc.finishQuery(qid);
+}
+
 void printHelp() {
-  printf("Options:\n-help\n-friends\n-avatars\n-workshop\n");
+  printf("Options:\n-help\n-friends\n-avatars\n-workshop\n-full-workshop\n");
 }
 
 int main(int argc, char** argv) {
@@ -172,6 +196,10 @@ int main(int argc, char** argv) {
     printHelp();
     return 0;
   }
+
+  FatalLog.addOutput(DebugOutput::crash());
+  FatalLog.addOutput(DebugOutput::toStream(std::cerr));
+  InfoLog.addOutput(DebugOutput::toStream(std::cerr));
 
   if (!steam::initAPI()) {
     printf("Steam is not running\n");
@@ -189,6 +217,8 @@ int main(int argc, char** argv) {
       printFriendAvatars(client);
     else if (option == "-workshop")
       printWorkshopItems(client);
+    else if (option == "-full-workshop")
+      printAllWorkshopItems(client);
     else if (option == "-help")
       printHelp();
     else {

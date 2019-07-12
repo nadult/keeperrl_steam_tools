@@ -55,18 +55,7 @@ InstallInfo UGC::installInfo(ItemId id) const {
   return {size_on_disk, buffer, time_stamp};
 }
 
-UGC::QueryId UGC::createQuery(const QueryInfo& info, vector<ItemId> items) {
-  auto id = FUNC(CreateQueryUGCDetailsRequest)(m_ptr, items.data(), items.size());
-  CHECK(id != k_UGCQueryHandleInvalid);
-  // TODO: properly handle errors
-
-  if (info.metadata)
-    FUNC(SetReturnMetadata)(m_ptr, id, true);
-  if (info.children)
-    FUNC(SetReturnChildren)(m_ptr, id, true);
-  auto result = FUNC(SendQueryUGCRequest)(m_ptr, id);
-  CHECK(result != k_uAPICallInvalid);
-
+UGC::QueryId UGC::allocQuery(Query::Handle handle, const QueryInfo& info) {
   int index = -1;
   for (int n = 0; n < m_queries.size(); n++)
     if (!m_queries[n].isValid()) {
@@ -79,27 +68,64 @@ UGC::QueryId UGC::createQuery(const QueryInfo& info, vector<ItemId> items) {
   }
 
   auto& query = m_queries[index];
-  query.m_handle = id;
+  query.m_handle = handle;
   query.m_is_completed = false;
   query.m_info = info;
-  query.m_items = std::move(items);
+
   return index;
 }
 
+void UGC::setupQuery(Query::Handle handle, const QueryInfo& info) {
+  if (info.metadata)
+    FUNC(SetReturnMetadata)(m_ptr, handle, true);
+  if (info.children)
+    FUNC(SetReturnChildren)(m_ptr, handle, true);
+  // TODO
+}
+
+UGC::QueryId UGC::createQuery(const QueryInfo& info, vector<ItemId> items) {
+  auto handle = FUNC(CreateQueryUGCDetailsRequest)(m_ptr, items.data(), items.size());
+  CHECK(handle != k_UGCQueryHandleInvalid);
+  // TODO: properly handle errors
+
+  setupQuery(handle, info);
+
+  auto result = FUNC(SendQueryUGCRequest)(m_ptr, handle);
+  CHECK(result != k_uAPICallInvalid);
+  printf("Send: %lld\n", (long long int)result);
+
+  auto id = allocQuery(handle, info);
+  m_queries[id].m_items = std::move(items);
+  return id;
+}
+
+UGC::QueryId UGC::createQuery(const QueryInfo& info, EUGCQuery type, EUGCMatchingUGCType matching_type, unsigned app_id,
+                              int page_id) {
+  CHECK(page_id >= 1);
+  auto handle = FUNC(CreateQueryAllUGCRequest)(m_ptr, type, matching_type, app_id, app_id, page_id);
+  CHECK(handle != k_UGCQueryHandleInvalid);
+
+  setupQuery(handle, info);
+
+  auto result = FUNC(SendQueryUGCRequest)(m_ptr, handle);
+  CHECK(result != k_uAPICallInvalid);
+  printf("Send: %lld\n", (long long int)result);
+
+  auto id = allocQuery(handle, info);
+  return id;
+}
+
 UGCQuery& UGC::readQuery(QueryId id) {
-  CHECK(id >= 0 && id < m_queries.size());
   CHECK(m_queries[id].isValid() && m_queries[id].isCompleted());
   return m_queries[id];
 }
 
 bool UGC::isCompleted(QueryId id) const {
-  CHECK(id >= 0 && id < m_queries.size());
   CHECK(m_queries[id].isValid());
   return m_queries[id].isCompleted();
 }
 
 void UGC::finishQuery(QueryId id) {
-  CHECK(id >= 0 && id < m_queries.size());
   CHECK(m_queries[id].isValid());
   FUNC(ReleaseQueryUGCRequest)(m_ptr, m_queries[id].m_handle);
   m_queries[id].m_handle = k_UGCQueryHandleInvalid;

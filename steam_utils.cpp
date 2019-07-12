@@ -21,4 +21,7 @@ vector<uint8> Utils::imageData(int image_id) const {
     CHECK(false);
   return out;
 }
+unsigned Utils::appId() const {
+  return FUNC(GetAppID)(m_ptr);
+}
 }

@@ -62,7 +62,6 @@ class UGCQuery {
   QueryInfo m_info;
   Handle m_handle = k_UGCQueryHandleInvalid;
   bool m_is_completed = false;
-
   int m_num_results = 0, m_total_results = 0;
 };
 
@@ -86,12 +85,17 @@ class UGC {
   InstallInfo installInfo(ItemId) const;
 
   QueryId createQuery(const QueryInfo&, vector<ItemId>);
+  QueryId createQuery(const QueryInfo&, EUGCQuery, EUGCMatchingUGCType, unsigned app_id, int page_id);
+
   bool isCompleted(QueryId) const;
   Query& readQuery(QueryId);
   void finishQuery(QueryId);
 
   private:
   UGC(intptr_t);
+  QueryId allocQuery(Query::Handle, const QueryInfo&);
+  void setupQuery(Query::Handle, const QueryInfo&);
+
   friend class Client;
 
   // TODO: is it safe on windows?
