@@ -1,0 +1,69 @@
+*** creatures.txt	2019-07-12 09:30:12.096434542 +0200
+--- green_creatures.txt	2019-07-17 12:22:28.060550770 +0200
+***************
+*** 8,12 ****
+        # Definitions in tiles.txt
+!       viewId = { "keeper1" }
+        # ViewId upgrades of Keepers are applied every 5 tech level increases
+!       viewIdUpgrades = { { "keeper2" } { "keeper3" } { "keeper4" } }
+        name = {
+--- 8,12 ----
+        # Definitions in tiles.txt
+!       viewId = { "keeper1" Rgb 58 206 56 255 }
+        # ViewId upgrades of Keepers are applied every 5 tech level increases
+!       viewIdUpgrades = { { "keeper2" Rgb 58 206 56 255 } { "keeper3" Rgb 58 206 56 255 } { "keeper4" Rgb 58 206 56 255 } }
+        name = {
+***************
+*** 45,47 ****
+      {
+!       viewId = { "keeper_f1" }
+        gender = FEMALE
+--- 45,47 ----
+      {
+!       viewId = { "keeper_f1" Rgb 58 206 56 255 }
+        gender = FEMALE
+***************
+*** 52,54 ****
+        }
+!       viewIdUpgrades = { { "keeper_f2" } { "keeper_f3" } { "keeper_f4" }}
+      }
+--- 52,54 ----
+        }
+!       viewIdUpgrades = { { "keeper_f2"  Rgb 58 206 56 255} { "keeper_f3"  Rgb 58 206 56 255} { "keeper_f4" Rgb 58 206 56 255 }}
+      }
+***************
+*** 56,58 ****
+      {
+!       viewId = { "keeper_knight1" }
+        attr = {
+--- 56,58 ----
+      {
+!       viewId = { "keeper_knight1"  Rgb 58 206 56 255}
+        attr = {
+***************
+*** 69,71 ****
+        }
+!       viewIdUpgrades = { { "keeper_knight2" } { "keeper_knight3" } { "keeper_knight4" }}
+        skills = {
+--- 69,71 ----
+        }
+!       viewIdUpgrades = { { "keeper_knight2" Rgb 58 206 56 255 } { "keeper_knight3"  Rgb 58 206 56 255} { "keeper_knight4" Rgb 58 206 56 255 }}
+        skills = {
+***************
+*** 82,84 ****
+      {
+!       viewId = { "keeper_knight_f1" }
+        gender = FEMALE
+--- 82,84 ----
+      {
+!       viewId = { "keeper_knight_f1"  Rgb 58 206 56 255}
+        gender = FEMALE
+***************
+*** 89,91 ****
+        }
+!       viewIdUpgrades = { { "keeper_knight_f2" } { "keeper_knight_f3" } { "keeper_knight_f4" }}
+      }
+--- 89,91 ----
+        }
+!       viewIdUpgrades = { { "keeper_knight_f2"  Rgb 58 206 56 255} { "keeper_knight_f3" Rgb 58 206 56 255 } { "keeper_knight_f4" Rgb 58 206 56 255 }}
+      }
