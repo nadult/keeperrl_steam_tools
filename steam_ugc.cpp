@@ -193,4 +193,28 @@ vector<pair<string, string>> UGC::queryKeyValueTags(QueryId qid, int index) {
   }
   return out;
 }
+
+void UGC::beginCreateItem() {
+  CHECK(!isCreatingItem());
+  auto appId = Utils::instance().appId();
+  createItemQuery = FUNC(CreateItem)(ptr, appId, k_EWorkshopFileTypeCommunity);
+}
+
+optional<CreateItemInfo> UGC::tryCreateItem() {
+  createItemQuery.update();
+  if (createItemQuery.isCompleted()) {
+    auto out = createItemQuery.result();
+    createItemQuery.clear();
+    return out;
+  }
+  return none;
+}
+
+bool UGC::isCreatingItem() const {
+  return !!createItemQuery;
+}
+
+void UGC::cancelCreateItem() {
+  createItemQuery.clear();
+}
 }

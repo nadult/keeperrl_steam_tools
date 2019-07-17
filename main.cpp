@@ -216,8 +216,27 @@ void printAllWorkshopItems(steam::Client& client) {
   ugc.finishQuery(qid);
 }
 
+void addWorkshopItem(steam::Client& client, string name) {
+  auto& ugc = client.ugc();
+
+  ugc.beginCreateItem();
+  int num_retries = 20;
+  for (int r = 0; r < num_retries; r++) {
+    steam::runCallbacks();
+    if (auto result = ugc.tryCreateItem()) {
+      printf("item_id:%llu result:%d legal:%d\n", (unsigned long long)result->m_nPublishedFileId, result->m_eResult,
+             result->m_bUserNeedsToAcceptWorkshopLegalAgreement);
+      break;
+    }
+    usleep(100 * 1000);
+  }
+
+  if (ugc.isCreatingItem())
+    printf("Query takes too long!\n");
+}
+
 void printHelp() {
-  printf("Options:\n-help\n-friends\n-avatars\n-workshop\n-full-workshop\n");
+  printf("Options:\n-help\n-friends\n-avatars\n-workshop\n-full-workshop\n-add-workshop-item [name]\n");
 }
 
 int main(int argc, char** argv) {
@@ -249,7 +268,11 @@ int main(int argc, char** argv) {
       printWorkshopItems(client);
     else if (option == "-full-workshop")
       printAllWorkshopItems(client);
-    else if (option == "-help")
+    else if (option == "-add-workshop-item") {
+      CHECK(n + 1 < argc);
+      auto name = argv[++n];
+      addWorkshopItem(client, name);
+    } else if (option == "-help")
       printHelp();
     else {
       printf("unknown option: %s\n", argv[n]);

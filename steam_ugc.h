@@ -32,6 +32,8 @@ struct QueryInfo {
   bool totalOnly = false;
 };
 
+using CreateItemInfo = CreateItemResult_t;
+
 struct QueryResults {
   int count, total;
 };
@@ -72,6 +74,12 @@ class UGC {
   string queryMetadata(QueryId, int index);
   vector<pair<string, string>> queryKeyValueTags(QueryId, int index);
 
+  // TODO: wrap these commands into a simple interface?
+  void beginCreateItem();
+  optional<CreateItemInfo> tryCreateItem();
+  bool isCreatingItem() const;
+  void cancelCreateItem();
+
   // --------- Internal stuff -------------------------------------------------
   // --------------------------------------------------------------------------
 
@@ -96,5 +104,6 @@ class UGC {
   void setupQuery(QHandle, const QueryInfo&);
 
   vector<QueryData> queries;
+  CallResult<CreateItemResult_t> createItemQuery;
 };
 }

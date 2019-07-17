@@ -31,6 +31,7 @@ template <class T> class CallResult : public CallResultBase {
   }
 
   void update() {
+    CHECK(status != Status::invalid);
     CallResultBase::update(&result_, sizeof(result_), T::k_iCallback);
   }
 
