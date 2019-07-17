@@ -7,4 +7,5 @@ for mod in $mods; do
 	rm mods/$mod/*
 	cp keeperrl/data_free/game_config/vanilla/* mods/$mod/
 	patch -f mods/$mod/creatures.txt mods/$mod.patch
+	cp mods/$mod.txt mods/$mod/mod_info.txt
 done
