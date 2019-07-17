@@ -9,6 +9,28 @@
 #include "steam_ugc.h"
 #include "steam_utils.h"
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
+string currentPath() {
+  char buffer[2048];
+#ifdef _WIN32
+  if (!GetCurrentDirectory(sizeof(buf), buf))
+    return {};
+  return string(buf);
+#else
+  char* name = getcwd(buffer, sizeof(buffer) - 1);
+  return name ? string(name) : string();
+#endif
+}
+
+string absolutePath(string relativePath) {
+  // TODO: check that it is actually relative
+  return currentPath() + "/" + relativePath;
+}
+
 void printFriends(steam::Client& client) {
   auto& friends = client.friends();
 
@@ -216,27 +238,103 @@ void printAllWorkshopItems(steam::Client& client) {
   ugc.finishQuery(qid);
 }
 
-void addWorkshopItem(steam::Client& client, string name) {
+struct ModInfo {
+  string name;
+  string description;
+
+  static optional<ModInfo> load(DirectoryPath folder) {
+    if (!folder.exists()) {
+      printf("Folder %s does not exist!\n", folder.getPath());
+      return none;
+    }
+
+    auto file = folder.file("mod_info.txt");
+    if (auto contents = file.readContents()) {
+      auto lines = split(*contents, {'\n'});
+      if (lines.size() < 2) {
+        printf("mod_info.txt should contain at least 2 lines:\n-first line: mod name\n-following lines: mod "
+               "description\n");
+        return none;
+      }
+
+      string description;
+      for (int n = 1; n < lines.size(); n++)
+        description += lines[n] + "\n";
+      return ModInfo{lines[0], description};
+    } else {
+      printf("Missing mod_info.txt file\n");
+    }
+
+    return none;
+  }
+};
+
+void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, string folder_name) {
   auto& ugc = client.ugc();
 
-  ugc.beginCreateItem();
-  int num_retries = 20;
+  DirectoryPath folder(folder_name);
+  auto modInfo = ModInfo::load(folder);
+  if (!modInfo)
+    return;
+
+  bool legal = false; // TODO: handle it
+
+  if (!id) {
+    ugc.beginCreateItem();
+    int num_retries = 20;
+    for (int r = 0; r < num_retries; r++) {
+      steam::runCallbacks();
+      if (auto result = ugc.tryCreateItem()) {
+        if (result->m_eResult == k_EResultOK) {
+          id = result->m_nPublishedFileId;
+          legal = result->m_bUserNeedsToAcceptWorkshopLegalAgreement;
+        } else {
+          printf("Error while creating new workshop item; Error code: %d\n", (int)result->m_eResult);
+          return;
+        }
+        break;
+      }
+      usleep(100 * 1000);
+    }
+    if (ugc.isCreatingItem()) {
+      printf("Error while creating new workshop item: Query takes too long!\n");
+      return;
+    }
+  }
+
+  steam::ItemInfo itemInfo;
+  itemInfo.description = modInfo->description;
+  itemInfo.title = modInfo->name;
+  itemInfo.folder = absolutePath(folder.getPath());
+  // TODO: preview
+  itemInfo.version = 28; // TODO
+  itemInfo.visibility = k_ERemoteStoragePublishedFileVisibilityPrivate; //TODO
+
+  ugc.updateItem(itemInfo, *id);
+  int num_retries = 2000;
   for (int r = 0; r < num_retries; r++) {
     steam::runCallbacks();
-    if (auto result = ugc.tryCreateItem()) {
-      printf("item_id:%llu result:%d legal:%d\n", (unsigned long long)result->m_nPublishedFileId, result->m_eResult,
-             result->m_bUserNeedsToAcceptWorkshopLegalAgreement);
+    if (auto result = ugc.tryUpdateItem()) {
+      if (result->m_eResult == k_EResultOK) {
+        printf("Item %llu added!\n", (unsigned long long)*id);
+        legal |= result->m_bUserNeedsToAcceptWorkshopLegalAgreement;
+      } else {
+        printf("Error while updating new workshop item; Error code: %d\n", (int)result->m_eResult);
+        return;
+      }
       break;
     }
     usleep(100 * 1000);
   }
-
-  if (ugc.isCreatingItem())
-    printf("Query takes too long!\n");
+  if (ugc.isUpdatingItem()) {
+    printf("Error while updating new workshop item: Query takes too long!\n");
+    return;
+  }
 }
 
 void printHelp() {
-  printf("Options:\n-help\n-friends\n-avatars\n-workshop\n-full-workshop\n-add-workshop-item [name]\n");
+  printf("Options:\n-help\n-friends\n-avatars\n-workshop\n-full-workshop\n-add-workshop-item "
+         "[folder]\n-update-workshop-item [id] [folder]\n-update-workshop-preview [id] [image]\n");
 }
 
 int main(int argc, char** argv) {
@@ -270,8 +368,14 @@ int main(int argc, char** argv) {
       printAllWorkshopItems(client);
     else if (option == "-add-workshop-item") {
       CHECK(n + 1 < argc);
-      auto name = argv[++n];
-      addWorkshopItem(client, name);
+      auto folder = argv[++n];
+      addWorkshopItem(client, none, folder);
+    } else if (option == "-update-workshop-item") {
+      CHECK(n + 2 < argc);
+      auto id = atoll(argv[++n]);
+      CHECK(id > 0);
+      auto folder = argv[++n];
+      addWorkshopItem(client, id, folder);
     } else if (option == "-help")
       printHelp();
     else {

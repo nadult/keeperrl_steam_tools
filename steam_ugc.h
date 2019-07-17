@@ -33,6 +33,14 @@ struct QueryInfo {
 };
 
 using CreateItemInfo = CreateItemResult_t;
+using UpdateItemInfo = SubmitItemUpdateResult_t;
+
+struct ItemInfo {
+  string title, description;
+  string folder;
+  int version;
+  ERemoteStoragePublishedFileVisibility visibility;
+};
 
 struct QueryResults {
   int count, total;
@@ -80,6 +88,11 @@ class UGC {
   bool isCreatingItem() const;
   void cancelCreateItem();
 
+  void updateItem(const ItemInfo&, ItemId);
+  optional<UpdateItemInfo> tryUpdateItem();
+  bool isUpdatingItem();
+  void cancelUpdateItem();
+
   // --------- Internal stuff -------------------------------------------------
   // --------------------------------------------------------------------------
 
@@ -105,5 +118,6 @@ class UGC {
 
   vector<QueryData> queries;
   CallResult<CreateItemResult_t> createItemQuery;
+  CallResult<SubmitItemUpdateResult_t> updateItemQuery;
 };
 }

@@ -217,4 +217,36 @@ bool UGC::isCreatingItem() const {
 void UGC::cancelCreateItem() {
   createItemQuery.clear();
 }
+
+void UGC::updateItem(const ItemInfo& info, ItemId id) {
+  printf("updating item: %llu %s\nFolder: %s\n", (unsigned long long)id, info.title.c_str(), info.folder.c_str());
+
+  auto appId = Utils::instance().appId();
+  auto handle = FUNC(StartItemUpdate)(ptr, appId, id);
+
+  FUNC(SetItemTitle)(ptr, handle, info.title.c_str());
+  FUNC(SetItemDescription)(ptr, handle, info.description.c_str());
+  FUNC(SetItemContent)(ptr, handle, info.folder.c_str());
+  FUNC(SetItemVisibility)(ptr, handle, info.visibility);
+  // TODO: version
+
+  updateItemQuery = FUNC(SubmitItemUpdate)(ptr, handle, nullptr);
+}
+
+optional<UpdateItemInfo> UGC::tryUpdateItem() {
+  updateItemQuery.update();
+  if (updateItemQuery.isCompleted()) {
+    auto out = updateItemQuery.result();
+    updateItemQuery.clear();
+    return out;
+  }
+  return none;
+}
+
+bool UGC::isUpdatingItem() {
+  return !!updateItemQuery;
+}
+
+void UGC::cancelUpdateItem() {
+}
 }
