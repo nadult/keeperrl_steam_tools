@@ -93,6 +93,11 @@ class UGC {
   bool isUpdatingItem();
   void cancelUpdateItem();
 
+  void updatePreview(const string&, ItemId);
+  optional<UpdateItemInfo> tryUpdatePreview();
+  bool isUpdatingPreview();
+  void cancelUpdatePreview();
+
   // --------- Internal stuff -------------------------------------------------
   // --------------------------------------------------------------------------
 
@@ -118,6 +123,6 @@ class UGC {
 
   vector<QueryData> queries;
   CallResult<CreateItemResult_t> createItemQuery;
-  CallResult<SubmitItemUpdateResult_t> updateItemQuery;
+  CallResult<SubmitItemUpdateResult_t> updateItemQuery, updatePreviewQuery;
 };
 }

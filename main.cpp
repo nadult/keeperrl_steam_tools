@@ -269,10 +269,10 @@ struct ModInfo {
   }
 };
 
-void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, string folder_name) {
+void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, string folderName) {
   auto& ugc = client.ugc();
 
-  DirectoryPath folder(folder_name);
+  DirectoryPath folder(folderName);
   auto modInfo = ModInfo::load(folder);
   if (!modInfo)
     return;
@@ -281,7 +281,7 @@ void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, str
 
   if (!id) {
     ugc.beginCreateItem();
-    int num_retries = 20;
+    int num_retries = 100;
     for (int r = 0; r < num_retries; r++) {
       steam::runCallbacks();
       if (auto result = ugc.tryCreateItem()) {
@@ -311,8 +311,7 @@ void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, str
   itemInfo.visibility = k_ERemoteStoragePublishedFileVisibilityPrivate; //TODO
 
   ugc.updateItem(itemInfo, *id);
-  int num_retries = 2000;
-  for (int r = 0; r < num_retries; r++) {
+  while (true) {
     steam::runCallbacks();
     if (auto result = ugc.tryUpdateItem()) {
       if (result->m_eResult == k_EResultOK) {
@@ -326,9 +325,27 @@ void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, str
     }
     usleep(100 * 1000);
   }
-  if (ugc.isUpdatingItem()) {
-    printf("Error while updating new workshop item: Query takes too long!\n");
-    return;
+}
+
+void updateWorkshopPreview(steam::Client& client, unsigned long long id, string fileName) {
+  auto& ugc = client.ugc();
+
+  // TODO: check if file exists
+  auto fullPath = absolutePath(fileName);
+
+  ugc.updatePreview(fullPath, id);
+  while (true) {
+    steam::runCallbacks();
+    if (auto result = ugc.tryUpdatePreview()) {
+      if (result->m_eResult == k_EResultOK) {
+        printf("Item %llu preview updated!\n", id);
+      } else {
+        printf("Error while updating item preview; Error code: %d\n", (int)result->m_eResult);
+        return;
+      }
+      break;
+    }
+    usleep(100 * 1000);
   }
 }
 
@@ -376,6 +393,12 @@ int main(int argc, char** argv) {
       CHECK(id > 0);
       auto folder = argv[++n];
       addWorkshopItem(client, id, folder);
+    } else if (option == "-update-workshop-preview") {
+      CHECK(n + 2 < argc);
+      auto id = atoll(argv[++n]);
+      CHECK(id > 0);
+      auto fileName = argv[++n];
+      updateWorkshopPreview(client, id, fileName);
     } else if (option == "-help")
       printHelp();
     else {

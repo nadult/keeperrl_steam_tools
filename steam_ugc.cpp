@@ -248,5 +248,32 @@ bool UGC::isUpdatingItem() {
 }
 
 void UGC::cancelUpdateItem() {
+  updateItemQuery.clear();
+}
+
+void UGC::updatePreview(const string& fileName, ItemId id) {
+  auto appId = Utils::instance().appId();
+  auto handle = FUNC(StartItemUpdate)(ptr, appId, id);
+
+  FUNC(SetItemPreview)(ptr, handle, fileName.c_str());
+  updatePreviewQuery = FUNC(SubmitItemUpdate)(ptr, handle, nullptr);
+}
+
+optional<UpdateItemInfo> UGC::tryUpdatePreview() {
+  updatePreviewQuery.update();
+  if (updatePreviewQuery.isCompleted()) {
+    auto out = updatePreviewQuery.result();
+    updatePreviewQuery.clear();
+    return out;
+  }
+  return none;
+}
+
+bool UGC::isUpdatingPreview() {
+  return !!updatePreviewQuery;
+}
+
+void UGC::cancelUpdatePreview() {
+  updatePreviewQuery.clear();
 }
 }
