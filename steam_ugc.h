@@ -40,10 +40,12 @@ struct UpdateItemInfo {
 
   ItemId itemId;
   EResult result;
+  bool failedWhenCreating;
   bool requireLegalAgreement;
 };
 
 struct ItemInfo {
+  optional<ItemId> id; // if empty, new item will be created
   optional<string> title;
   optional<string> description;
   optional<string> folder;
@@ -94,13 +96,7 @@ class UGC {
   string queryMetadata(QueryId, int index);
   vector<pair<string, string>> queryKeyValueTags(QueryId, int index);
 
-  // TODO: wrap these commands into a simple interface?
-  void beginCreateItem();
-  optional<UpdateItemInfo> tryCreateItem();
-  bool isCreatingItem() const;
-  void cancelCreateItem();
-
-  void updateItem(const ItemInfo&, ItemId);
+  void updateItem(const ItemInfo&);
   optional<UpdateItemInfo> tryUpdateItem();
   bool isUpdatingItem();
   void cancelUpdateItem();
@@ -129,7 +125,8 @@ class UGC {
   void setupQuery(QHandle, const QueryInfo&);
 
   vector<QueryData> queries;
-  CallResult<CreateItemResult_t> createItemQuery;
+  optional<ItemInfo> createItemInfo;
+  CallResult<CreateItemResult_t> createItemQuery; //TODO: rename
   CallResult<SubmitItemUpdateResult_t> updateItemQuery;
 };
 }

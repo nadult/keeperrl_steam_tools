@@ -231,42 +231,20 @@ struct ModInfo {
   }
 };
 
-void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, const steam::ItemInfo& itemInfo) {
+void updateWorkshopItem(steam::Client& client, const steam::ItemInfo& itemInfo) {
   auto& ugc = client.ugc();
   bool legal = false; // TODO: handle it
 
-  if (!id) {
-    ugc.beginCreateItem();
-    int num_retries = 100;
-    for (int r = 0; r < num_retries; r++) {
-      steam::runCallbacks();
-      if (auto result = ugc.tryCreateItem()) {
-        if (result->valid()) {
-          id = result->itemId;
-          legal = result->requireLegalAgreement;
-        } else {
-          printf("Error while creating new workshop item: %s\n", steam::errorText(result->result).c_str());
-          return;
-        }
-        break;
-      }
-      usleep(100 * 1000);
-    }
-    if (ugc.isCreatingItem()) {
-      printf("Error while creating new workshop item: Query takes too long!\n");
-      return;
-    }
-  }
-
-  ugc.updateItem(itemInfo, *id);
+  ugc.updateItem(itemInfo);
   while (true) {
     steam::runCallbacks();
     if (auto result = ugc.tryUpdateItem()) {
       if (result->valid()) {
-        printf("Item %llu added!\n", (unsigned long long)*id);
+        printf("Item %s!\n", itemInfo.id ? "updated" : "added");
         legal |= result->requireLegalAgreement;
       } else {
-        printf("Error while updating new workshop item: %s\n", steam::errorText(result->result).c_str());
+        printf("Error while %s new workshop item: %s\n", result->failedWhenCreating ? "creating" : "updating",
+               steam::errorText(result->result).c_str());
         return;
       }
       break;
@@ -275,20 +253,20 @@ void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, con
   }
 }
 
-void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, string folderName) {
+void updateWorkshopItem(steam::Client& client, optional<unsigned long long> id, string folderName) {
   DirectoryPath folder(folderName);
   auto modInfo = ModInfo::load(folder);
   if (!modInfo)
     return;
 
   steam::ItemInfo itemInfo;
+  itemInfo.id = id;
   itemInfo.description = modInfo->description;
   itemInfo.title = modInfo->name;
   itemInfo.folder = (string)folder.absolute().getPath();
-  // TODO: preview
   itemInfo.version = 28; // TODO
-  itemInfo.visibility = k_ERemoteStoragePublishedFileVisibilityPrivate; //TODO
-  addWorkshopItem(client, id, itemInfo);
+  //itemInfo.visibility = k_ERemoteStoragePublishedFileVisibilityPrivate; //TODO
+  updateWorkshopItem(client, itemInfo);
 }
 
 void updateWorkshopPreview(steam::Client& client, unsigned long long id, string fileName) {
@@ -302,7 +280,8 @@ void updateWorkshopPreview(steam::Client& client, unsigned long long id, string 
 
   steam::ItemInfo itemInfo;
   itemInfo.preview = (string)filePath.getPath();
-  addWorkshopItem(client, id, itemInfo);
+  itemInfo.id = id;
+  updateWorkshopItem(client, itemInfo);
 }
 
 void printHelp() {
@@ -342,13 +321,13 @@ int main(int argc, char** argv) {
     else if (option == "-add-workshop-item") {
       CHECK(n + 1 < argc);
       auto folder = argv[++n];
-      addWorkshopItem(client, none, folder);
+      updateWorkshopItem(client, none, folder);
     } else if (option == "-update-workshop-item") {
       CHECK(n + 2 < argc);
       auto id = atoll(argv[++n]);
       CHECK(id > 0);
       auto folder = argv[++n];
-      addWorkshopItem(client, id, folder);
+      updateWorkshopItem(client, id, folder);
     } else if (option == "-update-workshop-preview") {
       CHECK(n + 2 < argc);
       auto id = atoll(argv[++n]);

@@ -211,64 +211,72 @@ vector<pair<string, string>> UGC::queryKeyValueTags(QueryId qid, int index) {
   return out;
 }
 
-void UGC::beginCreateItem() {
-  CHECK(!isCreatingItem());
+void UGC::updateItem(const ItemInfo& info) {
+  CHECK(!isUpdatingItem());
   auto appId = Utils::instance().appId();
-  createItemQuery = FUNC(CreateItem)(ptr, appId, k_EWorkshopFileTypeCommunity);
-}
 
-optional<UpdateItemInfo> UGC::tryCreateItem() {
-  createItemQuery.update();
-  if (createItemQuery.isCompleted()) {
-    auto& out = createItemQuery.result();
-    createItemQuery.clear();
-    return UpdateItemInfo{out.m_nPublishedFileId, out.m_eResult, out.m_bUserNeedsToAcceptWorkshopLegalAgreement};
+  if (info.id) {
+    auto handle = FUNC(StartItemUpdate)(ptr, appId, *info.id);
+
+    if (info.title)
+      FUNC(SetItemTitle)(ptr, handle, info.title->c_str());
+    if (info.description)
+      FUNC(SetItemDescription)(ptr, handle, info.description->c_str());
+    if (info.folder)
+      FUNC(SetItemContent)(ptr, handle, info.folder->c_str());
+    if (info.preview)
+      FUNC(SetItemPreview)(ptr, handle, info.preview->c_str());
+    if (info.visibility)
+      FUNC(SetItemVisibility)(ptr, handle, *info.visibility);
+    // TODO: version
+
+    updateItemQuery = FUNC(SubmitItemUpdate)(ptr, handle, nullptr);
+  } else {
+    createItemQuery = FUNC(CreateItem)(ptr, appId, k_EWorkshopFileTypeCommunity);
+    createItemInfo = info;
   }
-  return none;
-}
-
-bool UGC::isCreatingItem() const {
-  return !!createItemQuery;
-}
-
-void UGC::cancelCreateItem() {
-  createItemQuery.clear();
-}
-
-void UGC::updateItem(const ItemInfo& info, ItemId id) {
-  auto appId = Utils::instance().appId();
-  auto handle = FUNC(StartItemUpdate)(ptr, appId, id);
-
-  if (info.title)
-    FUNC(SetItemTitle)(ptr, handle, info.title->c_str());
-  if (info.description)
-    FUNC(SetItemDescription)(ptr, handle, info.description->c_str());
-  if (info.folder)
-    FUNC(SetItemContent)(ptr, handle, info.folder->c_str());
-  if (info.preview)
-    FUNC(SetItemPreview)(ptr, handle, info.preview->c_str());
-  if (info.visibility)
-    FUNC(SetItemVisibility)(ptr, handle, *info.visibility);
-  // TODO: version
-
-  updateItemQuery = FUNC(SubmitItemUpdate)(ptr, handle, nullptr);
 }
 
 optional<UpdateItemInfo> UGC::tryUpdateItem() {
+  if (createItemQuery) {
+    createItemQuery.update();
+    if (createItemQuery.isCompleted()) {
+      auto& out = createItemQuery.result();
+      createItemQuery.clear();
+
+      if (out.m_eResult == k_EResultOK) {
+        createItemInfo->id = out.m_nPublishedFileId;
+        updateItem(*createItemInfo);
+        return none;
+      } else {
+        return UpdateItemInfo{k_PublishedFileIdInvalid, out.m_eResult, true, false};
+      }
+    }
+    return none;
+  }
+
   updateItemQuery.update();
   if (updateItemQuery.isCompleted()) {
     auto& out = updateItemQuery.result();
     updateItemQuery.clear();
-    return UpdateItemInfo{out.m_nPublishedFileId, out.m_eResult, out.m_bUserNeedsToAcceptWorkshopLegalAgreement};
+    createItemInfo = none;
+    return UpdateItemInfo{out.m_nPublishedFileId, out.m_eResult, false, out.m_bUserNeedsToAcceptWorkshopLegalAgreement};
   }
   return none;
 }
 
 bool UGC::isUpdatingItem() {
-  return !!updateItemQuery;
+  return !!createItemQuery || !!updateItemQuery;
 }
 
 void UGC::cancelUpdateItem() {
+  if (createItemInfo && createItemInfo->id && updateItemQuery) {
+    // Update was cancelled, let's remove partially updated item
+    FUNC(DeleteItem)(ptr, *createItemInfo->id);
+  }
+
+  createItemQuery.clear();
+  createItemInfo = none;
   updateItemQuery.clear();
 }
 }
