@@ -12,6 +12,10 @@ ifeq ($(MACHINE), x86_64-linux-gnu)
 	LIB_DIR=steamworks/redistributable_bin/linux64/
 	LIB_NAME=steam_api
 	NAME=steam_tools
+else ifeq ($(MACHINE), x86_64-pc-linux-gnu)
+	LIB_DIR=steamworks/redistributable_bin/linux64/
+	LIB_NAME=steam_api
+	NAME=steam_tools
 else ifeq ($(MACHINE), x86_64-w64-mingw32)
 	LIB_DIR=steamworks/redistributable_bin/win64/
 	LIB_NAME=steam_api64
@@ -26,7 +30,7 @@ endif
 all: $(NAME)
 
 INCLUDES=-I ./ -I keeperrl/ -I keeperrl/extern/ -I steamworks/public/ 
-CFLAGS+=$(INCLUDES) -fmax-errors=20 -g -std=c++1y -pthread
+CFLAGS+=$(INCLUDES) -g -std=c++1y -pthread
 LDFLAGS+=-L $(LIB_DIR) -l $(LIB_NAME)
 
 OBJDIR = obj
