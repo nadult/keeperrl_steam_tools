@@ -1,7 +1,7 @@
-steamworks/
 obj/
 mods/*/
 steam_tools.exe
 steam_tools
 steam_api64.dll
 steam_api.dll
+libsteam_api.so

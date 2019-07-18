@@ -1,18 +1,12 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "keeperrl/directory_path.h"
-#include "keeperrl/file_path.h"
-
+#include "directory_path.h"
+#include "file_path.h"
 #include "steam_friends.h"
 #include "steam_client.h"
 #include "steam_ugc.h"
 #include "steam_utils.h"
-
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
 
 void printFriends(steam::Client& client) {
   auto& friends = client.friends();

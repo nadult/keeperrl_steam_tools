@@ -18,7 +18,8 @@ on Windows:
 - run steam\_works.exe
 
 on Linux:
-- run run\_linux.sh
+- copy appropriate (32 or 64 bit) libsteam\_api.so to root folder
+- run ./steam\_works
 
 
 TODO: more details

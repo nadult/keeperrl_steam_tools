@@ -6,6 +6,7 @@ flags = [
 '-Wall', '-Wextra', '-Werror', '-Woverloaded-virtual', '-Wno-non-virtual-dtor', '-Werror=return-type', '-Werror=switch',
 '-Wimplicit-fallthrough', '-Wno-reorder', '-Wuninitialized', '-Wno-unused-function', '-Wno-unused-variable',
 '-Wno-unused-parameter', '-Wparentheses', '-Wno-overloaded-virtual', '-Wno-undefined-inline', '-Wno-unknown-attributes',
+'-DUSE_STEAMWORKS',
 
 '-isystem', '/usr/include/c++/8',
 '-isystem', '/usr/include/c++/8/x86_64-pc-linux-gnu',

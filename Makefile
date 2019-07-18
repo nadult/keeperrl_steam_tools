@@ -3,42 +3,28 @@ GCC = g++
 endif
 LD = $(GCC)
 
-ifndef MACHINE
-MACHINE=$(shell $(GCC) -dumpmachine)
-endif
+include keeperrl/Makefile-steam
 
-# Detecting system
-ifeq ($(MACHINE), x86_64-linux-gnu)
-	LIB_DIR=steamworks/redistributable_bin/linux64/
-	LIB_NAME=steam_api
-	NAME=steam_tools
-else ifeq ($(MACHINE), x86_64-pc-linux-gnu)
-	LIB_DIR=steamworks/redistributable_bin/linux64/
-	LIB_NAME=steam_api
-	NAME=steam_tools
-else ifeq ($(MACHINE), x86_64-w64-mingw32)
-	LIB_DIR=steamworks/redistributable_bin/win64/
-	LIB_NAME=steam_api64
+NAME=steam_tools
+ifeq ($(MACHINE), x86_64-w64-mingw32)
 	NAME=steam_tools.exe
 else ifeq ($(MACHINE), i686-w64-mingw32)
-	LIB_DIR=steamworks/redistributable_bin/
-	LIB_NAME=steam_api
 	NAME=steam_tools.exe
-#TODO: else handle error
 endif
 
 all: $(NAME)
 
-INCLUDES=-I ./ -I keeperrl/ -I keeperrl/extern/ -I steamworks/public/ 
+INCLUDES=-I ./ -I keeperrl/ -I keeperrl/extern/
 CFLAGS+=$(INCLUDES) -g -std=c++1y -pthread
-LDFLAGS+=-L $(LIB_DIR) -l $(LIB_NAME)
+LDFLAGS+=-fuse-ld=gold -Wl,-rpath=. -L keeperrl/$(STEAM_LIB_DIR) -l $(STEAM_LIB_NAME)
 
 OBJDIR = obj
 _dummy := $(shell [ -d $(OBJDIR) ] || mkdir -p $(OBJDIR))
 _dummy := $(shell [ -d $(OBJDIR)/keeperrl ] || mkdir -p $(OBJDIR)/keeperrl)
 
-KEEPER_SRCS=debug util directory_path file_path
-SRCS = $(shell ls -t *.cpp) $(KEEPER_SRCS:%=keeperrl/%.cpp)
+KEEPER_SRCS=debug util directory_path file_path 
+STEAM_SRCS=$(shell ls -t keeperrl/steam_*.cpp)
+SRCS = main.cpp $(STEAM_SRCS) $(KEEPER_SRCS:%=keeperrl/%.cpp)
 
 OBJS = $(addprefix $(OBJDIR)/,$(SRCS:.cpp=.o))
 DEPS = $(addprefix $(OBJDIR)/,$(SRCS:.cpp=.d))
@@ -50,10 +36,10 @@ $(NAME): $(OBJS)
 	$(LD) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	$(RM) $(OBJDIR)/*.o
-	$(RM) $(OBJDIR)/*.d
+	$(RM) $(OBJDIR)/*.o $(OBJDIR)/*.d
+	$(RM) $(OBJDIR)/keeperrl/*.o $(OBJDIR)/keeperrl/*.d
 	$(RM) $(NAME)
-	-rmdir $(OBJDIR)
+	find $(OBJDIR) -type d -empty -delete
 
 print-vars:
 	@echo SRCS: $(SRCS)
