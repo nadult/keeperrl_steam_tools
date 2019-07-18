@@ -1,8 +1,6 @@
 #pragma once
 
 #include "steam_base.h"
-#include "steam_utils.h"
-#include "steam_call_result.h"
 #include <steam/isteamugc.h>
 
 namespace steam {
@@ -60,8 +58,6 @@ struct QueryResults {
 
 using QueryDetails = SteamUGCDetails_t;
 
-string itemStateText(unsigned);
-
 class UGC {
   STEAM_IFACE_DECL(UGC);
 
@@ -74,9 +70,6 @@ class UGC {
   uint32_t state(ItemId) const;
   DownloadInfo downloadInfo(ItemId) const;
   InstallInfo installInfo(ItemId) const;
-
-  // --------- Queries --------------------------------------------------------
-  // --------------------------------------------------------------------------
 
   using QueryId = int;
 
@@ -101,32 +94,14 @@ class UGC {
   bool isUpdatingItem();
   void cancelUpdateItem();
 
-  // --------- Internal stuff -------------------------------------------------
-  // --------------------------------------------------------------------------
-
   private:
   using QHandle = UGCQueryHandle_t;
-  using QStatus = QueryStatus;
-  static constexpr QHandle invalidHandle = k_UGCQueryHandleInvalid;
 
-  using QueryCall = CallResult<SteamUGCQueryCompleted_t>;
-  struct QueryData {
-    bool valid() const {
-      return handle != invalidHandle;
-    }
-
-    QHandle handle = invalidHandle;
-    vector<ItemId> items;
-    QueryInfo info;
-    QueryCall call;
-  };
-
-  QueryId allocQuery(QHandle, const QueryInfo&);
   void setupQuery(QHandle, const QueryInfo&);
 
-  vector<QueryData> queries;
-  optional<ItemInfo> createItemInfo;
-  CallResult<CreateItemResult_t> createItemQuery; //TODO: rename
-  CallResult<SubmitItemUpdateResult_t> updateItemQuery;
+  struct QueryData;
+  struct Impl;
+
+  HeapAllocated<Impl> impl;
 };
 }

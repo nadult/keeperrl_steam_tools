@@ -1,5 +1,6 @@
 #include "steam_internal.h"
 #include "steam_client.h"
+#include "steam_call_result.h"
 
 #include "steam_friends.h"
 #include "steam_user.h"

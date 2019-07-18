@@ -48,4 +48,21 @@ string errorText(EResult value) {
     return "";
   return formatError(value, results, arraySize(results));
 }
+
+string itemStateText(unsigned bits) {
+  static const char* names[] = {"subscribed",   "legacy_item", "installed",
+                                "needs_update", "downloading", "download_pending"};
+
+  if (bits == k_EItemStateNone)
+    return "none";
+
+  string out;
+  for (int n = 0; n < arraySize(names); n++)
+    if (bits & (1 << n)) {
+      if (!out.empty())
+        out += ' ';
+      out += names[n];
+    }
+  return out;
+}
 }

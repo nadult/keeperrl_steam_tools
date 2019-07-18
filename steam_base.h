@@ -46,6 +46,7 @@ void runCallbacks();
 
 string formatError(int value, const pair<int, const char*>* strings, int count);
 string errorText(EResult);
+string itemStateText(unsigned bits);
 
 template <class T> class CallResult;
 }
