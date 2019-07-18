@@ -44,5 +44,8 @@ class User;
 bool initAPI();
 void runCallbacks();
 
+string formatError(int value, const pair<int, const char*>* strings, int count);
+string errorText(EResult);
+
 template <class T> class CallResult;
 }

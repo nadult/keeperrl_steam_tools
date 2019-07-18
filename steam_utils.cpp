@@ -5,39 +5,6 @@
 
 namespace steam {
 
-void CallResultBase::update(void* data, int data_size, int ident) {
-  using Status = QueryStatus;
-  bool failed = false;
-  if (status == Status::pending) {
-    auto& utils = Utils::instance();
-    auto is_completed = FUNC(IsAPICallCompleted)(utils.ptr, handle, &failed);
-    if (!failed && is_completed) {
-      auto result = FUNC(GetAPICallResult)(utils.ptr, handle, data, data_size, ident, &failed);
-      if (result && !failed)
-        status = Status::completed;
-    }
-
-    if (failed) {
-      status = Status::failed;
-      failure = FUNC(GetAPICallFailureReason)(utils.ptr, handle);
-    }
-  }
-}
-
-static const pair<ESteamAPICallFailure, const char*> texts[] = {
-    {k_ESteamAPICallFailureNone, ""},
-    {k_ESteamAPICallFailureSteamGone, "API call failure: SteamGone"},
-    {k_ESteamAPICallFailureNetworkFailure, "API call failure: network failure"},
-    {k_ESteamAPICallFailureInvalidHandle, "API call failure: invalid handle"},
-    {k_ESteamAPICallFailureMismatchedCallback, "API call failure: mismatched callback"}};
-
-const char* CallResultBase::failText() const {
-  for (auto& pair : texts)
-    if (failure == pair.first)
-      return pair.second;
-  return "API call failure: unknown";
-}
-
 Utils::Utils(intptr_t ptr) : ptr(ptr) {
 }
 Utils::~Utils() = default;

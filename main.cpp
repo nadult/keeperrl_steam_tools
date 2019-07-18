@@ -14,23 +14,6 @@
 #include <windows.h>
 #endif
 
-string currentPath() {
-  char buffer[2048];
-#ifdef _WIN32
-  if (!GetCurrentDirectory(sizeof(buf), buf))
-    return {};
-  return string(buf);
-#else
-  char* name = getcwd(buffer, sizeof(buffer) - 1);
-  return name ? string(name) : string();
-#endif
-}
-
-string absolutePath(string relativePath) {
-  // TODO: check that it is actually relative
-  return currentPath() + "/" + relativePath;
-}
-
 void printFriends(steam::Client& client) {
   auto& friends = client.friends();
 
@@ -97,10 +80,6 @@ void printFriendAvatars(steam::Client& client) {
   printf("Completed: %d\n", num_completed);
 }
 
-template <class T, int size> constexpr int arraySize(T (&)[size]) {
-  return size;
-}
-
 string itemStateText(uint32_t bits) {
   static const char* names[] = {"subscribed",   "legacy_item", "installed",
                                 "needs_update", "downloading", "download_pending"};
@@ -165,7 +144,7 @@ void printQueryInfo(steam::UGC& ugc, steam::UGC::QueryId qid) {
       printf("  desc: %s\n\n", desc.c_str());
     }
   } else if (status == QueryStatus::failed) {
-    printf("Query failed: %s\n", ugc.queryError(qid));
+    printf("Query failed: %s\n", ugc.queryError(qid).c_str());
   }
 }
 
@@ -289,7 +268,7 @@ void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, str
           id = result->m_nPublishedFileId;
           legal = result->m_bUserNeedsToAcceptWorkshopLegalAgreement;
         } else {
-          printf("Error while creating new workshop item; Error code: %d\n", (int)result->m_eResult);
+          printf("Error while creating new workshop item; %s\n", steam::errorText(result->m_eResult).c_str());
           return;
         }
         break;
@@ -305,7 +284,7 @@ void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, str
   steam::ItemInfo itemInfo;
   itemInfo.description = modInfo->description;
   itemInfo.title = modInfo->name;
-  itemInfo.folder = absolutePath(folder.getPath());
+  itemInfo.folder = folder.absolute().getPath();
   // TODO: preview
   itemInfo.version = 28; // TODO
   itemInfo.visibility = k_ERemoteStoragePublishedFileVisibilityPrivate; //TODO
@@ -330,17 +309,22 @@ void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, str
 void updateWorkshopPreview(steam::Client& client, unsigned long long id, string fileName) {
   auto& ugc = client.ugc();
 
-  // TODO: check if file exists
-  auto fullPath = absolutePath(fileName);
+  if (!isAbsolutePath(fileName.c_str()))
+    fileName = string(DirectoryPath::current().getPath()) + "/" + fileName;
+  auto filePath = FilePath::fromFullPath(fileName);
+  if (!filePath.exists()) {
+    printf("File %s does not exist!\n", fileName.c_str());
+    return;
+  }
 
-  ugc.updatePreview(fullPath, id);
+  ugc.updatePreview(filePath.getPath(), id);
   while (true) {
     steam::runCallbacks();
     if (auto result = ugc.tryUpdatePreview()) {
       if (result->m_eResult == k_EResultOK) {
         printf("Item %llu preview updated!\n", id);
       } else {
-        printf("Error while updating item preview; Error code: %d\n", (int)result->m_eResult);
+        printf("Error while updating item preview; %s\n", steam::errorText(result->m_eResult).c_str());
         return;
       }
       break;

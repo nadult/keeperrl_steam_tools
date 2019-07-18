@@ -2,6 +2,7 @@
 
 #include "steam_base.h"
 #include "steam_utils.h"
+#include "steam_call_result.h"
 #include <steam/isteamugc.h>
 
 namespace steam {
@@ -77,7 +78,7 @@ class UGC {
   QueryStatus queryStatus(QueryId) const;
   const QueryInfo& queryInfo(QueryId) const;
   QueryResults queryResults(QueryId) const;
-  const char* queryError(QueryId) const;
+  string queryError(QueryId) const;
   QueryDetails queryDetails(QueryId, int index);
   string queryMetadata(QueryId, int index);
   vector<pair<string, string>> queryKeyValueTags(QueryId, int index);

@@ -14,14 +14,6 @@
 
 namespace steam {
 
-bool initAPI() {
-  return SteamAPI_Init();
-}
-
-void runCallbacks() {
-  SteamAPI_RunCallbacks();
-}
-
 struct Client::Ifaces {
   Ifaces(intptr_t client, HSteamPipe pipeHandle, HSteamUser userHandle)
       : userStats((intptr_t)FUNC(GetISteamUserStats)(client, userHandle, pipeHandle, STEAMUSERSTATS_INTERFACE_VERSION)),

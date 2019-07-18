@@ -141,7 +141,7 @@ QueryResults UGC::queryResults(QueryId qid) const {
   return {(int)result.m_unNumResultsReturned, (int)result.m_unTotalMatchingResults};
 }
 
-const char* UGC::queryError(QueryId qid) const {
+string UGC::queryError(QueryId qid) const {
   CHECK(isQueryValid(qid));
   auto& call = queries[qid].call;
   if (call.status == QStatus::failed)
