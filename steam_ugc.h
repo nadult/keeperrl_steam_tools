@@ -33,14 +33,23 @@ struct QueryInfo {
   bool totalOnly = false;
 };
 
-using CreateItemInfo = CreateItemResult_t;
-using UpdateItemInfo = SubmitItemUpdateResult_t;
+struct UpdateItemInfo {
+  bool valid() const {
+    return result == k_EResultOK;
+  }
+
+  ItemId itemId;
+  EResult result;
+  bool requireLegalAgreement;
+};
 
 struct ItemInfo {
-  string title, description;
-  string folder;
-  int version;
-  ERemoteStoragePublishedFileVisibility visibility;
+  optional<string> title;
+  optional<string> description;
+  optional<string> folder;
+  optional<string> preview;
+  optional<int> version;
+  optional<ERemoteStoragePublishedFileVisibility> visibility;
 };
 
 struct QueryResults {
@@ -48,6 +57,8 @@ struct QueryResults {
 };
 
 using QueryDetails = SteamUGCDetails_t;
+
+string itemStateText(unsigned);
 
 class UGC {
   STEAM_IFACE_DECL(UGC);
@@ -85,7 +96,7 @@ class UGC {
 
   // TODO: wrap these commands into a simple interface?
   void beginCreateItem();
-  optional<CreateItemInfo> tryCreateItem();
+  optional<UpdateItemInfo> tryCreateItem();
   bool isCreatingItem() const;
   void cancelCreateItem();
 
@@ -93,11 +104,6 @@ class UGC {
   optional<UpdateItemInfo> tryUpdateItem();
   bool isUpdatingItem();
   void cancelUpdateItem();
-
-  void updatePreview(const string&, ItemId);
-  optional<UpdateItemInfo> tryUpdatePreview();
-  bool isUpdatingPreview();
-  void cancelUpdatePreview();
 
   // --------- Internal stuff -------------------------------------------------
   // --------------------------------------------------------------------------
@@ -124,6 +130,6 @@ class UGC {
 
   vector<QueryData> queries;
   CallResult<CreateItemResult_t> createItemQuery;
-  CallResult<SubmitItemUpdateResult_t> updateItemQuery, updatePreviewQuery;
+  CallResult<SubmitItemUpdateResult_t> updateItemQuery;
 };
 }

@@ -80,23 +80,6 @@ void printFriendAvatars(steam::Client& client) {
   printf("Completed: %d\n", num_completed);
 }
 
-string itemStateText(uint32_t bits) {
-  static const char* names[] = {"subscribed",   "legacy_item", "installed",
-                                "needs_update", "downloading", "download_pending"};
-
-  if (bits == k_EItemStateNone)
-    return "none";
-
-  string out;
-  for (int n = 0; n < arraySize(names); n++)
-    if (bits & (1 << n)) {
-      if (!out.empty())
-        out += ' ';
-      out += names[n];
-    }
-  return out;
-}
-
 void printIndent(int size) {
   for (int n = 0; n < size; n++)
     printf(" ");
@@ -154,7 +137,7 @@ void printWorkshopItems(steam::Client& client) {
   auto items = ugc.subscribedItems();
   for (auto item : items) {
     auto state = ugc.state(item);
-    printf("Item #%d: %s\n", (int)item, itemStateText(state).c_str());
+    printf("Item #%d: %s\n", (int)item, steam::itemStateText(state).c_str());
     if (state & k_EItemStateInstalled) {
       auto info = ugc.installInfo(item);
       printf("  Installed at: %s\n  Size: %llu  Time_stamp: %u\n", info.folder.c_str(), info.sizeOnDisk,
@@ -248,14 +231,8 @@ struct ModInfo {
   }
 };
 
-void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, string folderName) {
+void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, const steam::ItemInfo& itemInfo) {
   auto& ugc = client.ugc();
-
-  DirectoryPath folder(folderName);
-  auto modInfo = ModInfo::load(folder);
-  if (!modInfo)
-    return;
-
   bool legal = false; // TODO: handle it
 
   if (!id) {
@@ -264,11 +241,11 @@ void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, str
     for (int r = 0; r < num_retries; r++) {
       steam::runCallbacks();
       if (auto result = ugc.tryCreateItem()) {
-        if (result->m_eResult == k_EResultOK) {
-          id = result->m_nPublishedFileId;
-          legal = result->m_bUserNeedsToAcceptWorkshopLegalAgreement;
+        if (result->valid()) {
+          id = result->itemId;
+          legal = result->requireLegalAgreement;
         } else {
-          printf("Error while creating new workshop item; %s\n", steam::errorText(result->m_eResult).c_str());
+          printf("Error while creating new workshop item: %s\n", steam::errorText(result->result).c_str());
           return;
         }
         break;
@@ -281,23 +258,15 @@ void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, str
     }
   }
 
-  steam::ItemInfo itemInfo;
-  itemInfo.description = modInfo->description;
-  itemInfo.title = modInfo->name;
-  itemInfo.folder = folder.absolute().getPath();
-  // TODO: preview
-  itemInfo.version = 28; // TODO
-  itemInfo.visibility = k_ERemoteStoragePublishedFileVisibilityPrivate; //TODO
-
   ugc.updateItem(itemInfo, *id);
   while (true) {
     steam::runCallbacks();
     if (auto result = ugc.tryUpdateItem()) {
-      if (result->m_eResult == k_EResultOK) {
+      if (result->valid()) {
         printf("Item %llu added!\n", (unsigned long long)*id);
-        legal |= result->m_bUserNeedsToAcceptWorkshopLegalAgreement;
+        legal |= result->requireLegalAgreement;
       } else {
-        printf("Error while updating new workshop item; Error code: %d\n", (int)result->m_eResult);
+        printf("Error while updating new workshop item: %s\n", steam::errorText(result->result).c_str());
         return;
       }
       break;
@@ -306,9 +275,23 @@ void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, str
   }
 }
 
-void updateWorkshopPreview(steam::Client& client, unsigned long long id, string fileName) {
-  auto& ugc = client.ugc();
+void addWorkshopItem(steam::Client& client, optional<unsigned long long> id, string folderName) {
+  DirectoryPath folder(folderName);
+  auto modInfo = ModInfo::load(folder);
+  if (!modInfo)
+    return;
 
+  steam::ItemInfo itemInfo;
+  itemInfo.description = modInfo->description;
+  itemInfo.title = modInfo->name;
+  itemInfo.folder = (string)folder.absolute().getPath();
+  // TODO: preview
+  itemInfo.version = 28; // TODO
+  itemInfo.visibility = k_ERemoteStoragePublishedFileVisibilityPrivate; //TODO
+  addWorkshopItem(client, id, itemInfo);
+}
+
+void updateWorkshopPreview(steam::Client& client, unsigned long long id, string fileName) {
   if (!isAbsolutePath(fileName.c_str()))
     fileName = string(DirectoryPath::current().getPath()) + "/" + fileName;
   auto filePath = FilePath::fromFullPath(fileName);
@@ -317,20 +300,9 @@ void updateWorkshopPreview(steam::Client& client, unsigned long long id, string 
     return;
   }
 
-  ugc.updatePreview(filePath.getPath(), id);
-  while (true) {
-    steam::runCallbacks();
-    if (auto result = ugc.tryUpdatePreview()) {
-      if (result->m_eResult == k_EResultOK) {
-        printf("Item %llu preview updated!\n", id);
-      } else {
-        printf("Error while updating item preview; %s\n", steam::errorText(result->m_eResult).c_str());
-        return;
-      }
-      break;
-    }
-    usleep(100 * 1000);
-  }
+  steam::ItemInfo itemInfo;
+  itemInfo.preview = (string)filePath.getPath();
+  addWorkshopItem(client, id, itemInfo);
 }
 
 void printHelp() {

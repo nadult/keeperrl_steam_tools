@@ -6,6 +6,23 @@
 
 namespace steam {
 
+string itemStateText(unsigned bits) {
+  static const char* names[] = {"subscribed",   "legacy_item", "installed",
+                                "needs_update", "downloading", "download_pending"};
+
+  if (bits == k_EItemStateNone)
+    return "none";
+
+  string out;
+  for (int n = 0; n < arraySize(names); n++)
+    if (bits & (1 << n)) {
+      if (!out.empty())
+        out += ' ';
+      out += names[n];
+    }
+  return out;
+}
+
 UGC::UGC(intptr_t ptr) : ptr(ptr) {
 }
 UGC::~UGC() = default;
@@ -200,12 +217,12 @@ void UGC::beginCreateItem() {
   createItemQuery = FUNC(CreateItem)(ptr, appId, k_EWorkshopFileTypeCommunity);
 }
 
-optional<CreateItemInfo> UGC::tryCreateItem() {
+optional<UpdateItemInfo> UGC::tryCreateItem() {
   createItemQuery.update();
   if (createItemQuery.isCompleted()) {
-    auto out = createItemQuery.result();
+    auto& out = createItemQuery.result();
     createItemQuery.clear();
-    return out;
+    return UpdateItemInfo{out.m_nPublishedFileId, out.m_eResult, out.m_bUserNeedsToAcceptWorkshopLegalAgreement};
   }
   return none;
 }
@@ -219,15 +236,19 @@ void UGC::cancelCreateItem() {
 }
 
 void UGC::updateItem(const ItemInfo& info, ItemId id) {
-  printf("updating item: %llu %s\nFolder: %s\n", (unsigned long long)id, info.title.c_str(), info.folder.c_str());
-
   auto appId = Utils::instance().appId();
   auto handle = FUNC(StartItemUpdate)(ptr, appId, id);
 
-  FUNC(SetItemTitle)(ptr, handle, info.title.c_str());
-  FUNC(SetItemDescription)(ptr, handle, info.description.c_str());
-  FUNC(SetItemContent)(ptr, handle, info.folder.c_str());
-  FUNC(SetItemVisibility)(ptr, handle, info.visibility);
+  if (info.title)
+    FUNC(SetItemTitle)(ptr, handle, info.title->c_str());
+  if (info.description)
+    FUNC(SetItemDescription)(ptr, handle, info.description->c_str());
+  if (info.folder)
+    FUNC(SetItemContent)(ptr, handle, info.folder->c_str());
+  if (info.preview)
+    FUNC(SetItemPreview)(ptr, handle, info.preview->c_str());
+  if (info.visibility)
+    FUNC(SetItemVisibility)(ptr, handle, *info.visibility);
   // TODO: version
 
   updateItemQuery = FUNC(SubmitItemUpdate)(ptr, handle, nullptr);
@@ -236,9 +257,9 @@ void UGC::updateItem(const ItemInfo& info, ItemId id) {
 optional<UpdateItemInfo> UGC::tryUpdateItem() {
   updateItemQuery.update();
   if (updateItemQuery.isCompleted()) {
-    auto out = updateItemQuery.result();
+    auto& out = updateItemQuery.result();
     updateItemQuery.clear();
-    return out;
+    return UpdateItemInfo{out.m_nPublishedFileId, out.m_eResult, out.m_bUserNeedsToAcceptWorkshopLegalAgreement};
   }
   return none;
 }
@@ -249,31 +270,5 @@ bool UGC::isUpdatingItem() {
 
 void UGC::cancelUpdateItem() {
   updateItemQuery.clear();
-}
-
-void UGC::updatePreview(const string& fileName, ItemId id) {
-  auto appId = Utils::instance().appId();
-  auto handle = FUNC(StartItemUpdate)(ptr, appId, id);
-
-  FUNC(SetItemPreview)(ptr, handle, fileName.c_str());
-  updatePreviewQuery = FUNC(SubmitItemUpdate)(ptr, handle, nullptr);
-}
-
-optional<UpdateItemInfo> UGC::tryUpdatePreview() {
-  updatePreviewQuery.update();
-  if (updatePreviewQuery.isCompleted()) {
-    auto out = updatePreviewQuery.result();
-    updatePreviewQuery.clear();
-    return out;
-  }
-  return none;
-}
-
-bool UGC::isUpdatingPreview() {
-  return !!updatePreviewQuery;
-}
-
-void UGC::cancelUpdatePreview() {
-  updatePreviewQuery.clear();
 }
 }
