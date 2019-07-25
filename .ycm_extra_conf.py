@@ -14,7 +14,7 @@ flags = [
 '-isystem', '/usr/local/include',
 '-isystem', '/usr/include',
 
-'-I./', '-Ikeeperrl/', '-Ikeeperrl/extern/', '-Isteamworks/public/',
+'-I./', '-Ikeeperrl/', '-Ikeeperrl/extern/',
 ]
 
 # Set this to the absolute path to the folder (NOT the file!) containing the
@@ -110,4 +110,9 @@ def FlagsForFile( filename, **kwargs ):
   return {
     'flags': final_flags,
     'do_cache': True
+  }
+
+def Settings( **kwargs ):
+  return {
+    'flags': flags,
   }

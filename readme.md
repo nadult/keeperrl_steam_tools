@@ -2,7 +2,7 @@
 
 ## Building
 
-- extract steamworks sdk into steamworks/ directory in the root folder
+- extract steamworks sdk into keeperrl/extern/steamworks/ directory in the root folder
 - run fix\_headers.sh (it comments/removes declarations which cause compilation problems)
 - run make
 
