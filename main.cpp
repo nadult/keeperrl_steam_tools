@@ -10,6 +10,7 @@
 
 #define TEXT InfoLog.get()
 
+/*
 void printFriends(steam::Client& client) {
   auto& friends = client.friends();
 
@@ -97,113 +98,70 @@ void printFiles(string path_str, int indent, bool with_subdirs) {
     auto fname = split(file.getPath(), {'/'}).back();
     printf("%s\n", fname.c_str());
   }
-}
+}*/
 
-string shortenDesc(string desc, int max_len = 60) {
-  if ((int)desc.size() > max_len)
-    desc.resize(max_len);
-  auto it = desc.find("\n");
-  if (it != string::npos)
-    desc.resize(it);
+string shortenDesc(string desc, int maxLen = 60) {
+  maxLen -= 3;
+  bool shortened = false;
+  if ((int)desc.size() > maxLen) {
+    desc.resize(maxLen);
+    shortened = true;
+  }
+
+  auto pos = desc.find("\n");
+  if (pos != string::npos) {
+    shortened |= desc.size() > pos;
+    desc.resize(pos);
+  }
+
+  if (shortened)
+    desc += "...";
   return desc;
 }
 
-void printQueryInfo(steam::UGC& ugc, steam::UGC::QueryId qid) {
-  auto& info = ugc.queryInfo(qid);
-  auto status = ugc.queryStatus(qid);
-
-  if (status == QueryStatus::completed) {
-    auto results = ugc.queryResults(qid);
-    printf("Query completed with %d / %d results\n", results.count, results.total);
-
-    steam::QueryDetails details;
-    for (int n = 0; n < results.count; n++) {
-      ugc.queryDetails(qid, n, details);
-      printf("  %d: %s\n", n, details.m_rgchTitle);
-      string desc = shortenDesc(details.m_rgchDescription);
-      printf("  desc: %s\n\n", desc.c_str());
-    }
-  } else if (status == QueryStatus::failed) {
-    printf("Query failed: %s\n", ugc.queryError(qid).c_str());
-  }
-}
-
-void printWorkshopItems(steam::Client& client) {
-  auto& ugc = client.ugc();
-
-  auto items = ugc.subscribedItems();
-  for (auto item : items) {
-    auto state = ugc.state(item);
-    printf("Item #%d: %s\n", (int)item, steam::itemStateText(state).c_str());
-    if (state & k_EItemStateInstalled) {
-      auto info = ugc.installInfo(item);
-      printf("  Installed at: %s\n  Size: %llu  Time_stamp: %u\n", info.folder.c_str(), info.sizeOnDisk,
-             info.timeStamp);
-      printFiles(info.folder, 2, false);
-      printf("\n");
-    }
-    if (state & k_EItemStateDownloading) {
-      auto info = ugc.downloadInfo(item);
-      printf("  Downloading: %llu / %llu bytes\n", info.bytesDownloaded, info.bytesTotal);
-    }
-  }
-
-  steam::QueryInfo qinfo;
-  qinfo.keyValueTags = true;
-  qinfo.longDescription = true;
-  auto qid = ugc.createDetailsQuery(qinfo, items);
-
-  int num_retries = 20;
-  for (int r = 0; r < num_retries; r++) {
-    steam::runCallbacks();
-    ugc.updateQueries();
-
-    if (ugc.queryStatus(qid) != QueryStatus::pending) {
-      printQueryInfo(ugc, qid);
-      break;
-    }
-    usleep(100 * 1000);
-  }
-
-  if (ugc.queryStatus(qid) == QueryStatus::pending)
-    printf("Query takes too long!\n");
-  ugc.finishQuery(qid);
-}
-
-void printAllWorkshopItems(steam::Client& client) {
+void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
   auto& ugc = client.ugc();
   auto& utils = client.utils();
+  auto& friends = client.friends();
 
-  steam::QueryInfo qinfo;
-  //qinfo.metadata = true;
-  qinfo.onlyIds = true;
+  steam::DetailsQueryInfo qinfo;
   qinfo.keyValueTags = true;
-  auto qid = ugc.createQuery(qinfo, SteamQueryOrder::date, 1);
+  qinfo.longDescription = true;
+  qinfo.metadata = true;
+  //qinfo.playtimeStats = true; // TODO
+  //qinfo.playtimeStatsDays = 1000;
+  auto qid = ugc.createDetailsQuery(qinfo, items);
 
-  int num_retries = 20;
-  for (int r = 0; r < num_retries; r++) {
-    steam::runCallbacks();
-    ugc.updateQueries();
-
-    if (ugc.queryStatus(qid) != QueryStatus::pending) {
-      printQueryInfo(ugc, qid);
-      break;
-    }
-    usleep(100 * 1000);
+  ugc.waitForQueries({qid}, 100);
+  if (ugc.queryStatus(qid) != QueryStatus::completed) {
+    auto error = ugc.queryError(qid, "Query took too much time");
+    TEXT << error;
+    ugc.finishQuery(qid);
+    exit(1);
   }
 
-  if (ugc.queryStatus(qid) == QueryStatus::pending)
-    printf("Query takes too long!\n");
-  ugc.finishQuery(qid);
+  // TODO: retrieve author names
+  auto infos = ugc.finishDetailsQuery(qid);
+  for (auto& info : infos) {
+    TEXT << "Item #" << info.id << " ----------------------";
+    TEXT << "       title: " << info.title;
+    TEXT << " description: " << shortenDesc(info.description);
+    TEXT << "     ownerId: " << info.ownerId.ConvertToUint64();
+    TEXT << "       score: " << info.score << "(+" << info.votesUp << " / -" << info.votesDown << ")";
+    TEXT << "        tags: " << info.tags;
+    TEXT << "";
+  }
 }
 
-void updateWorkshopItem(steam::Client& client, const steam::ItemInfo& itemInfo) {
+void updateItem(steam::Client& client, const steam::UpdateItemInfo& itemInfo) {
   auto& ugc = client.ugc();
   bool legal = false; // TODO: handle it
 
   ugc.updateItem(itemInfo);
   while (true) {
     steam::runCallbacks();
+
+    // TODO: fix this
     if (auto result = ugc.tryUpdateItem()) {
       if (result->valid()) {
         printf("Item %s!\n", itemInfo.id ? "updated" : "added");
@@ -316,8 +274,8 @@ string parseTag(const string& value) {
   return {};
 }
 
-steam::ItemInfo parseItemInfo(const vector<Option>& options) {
-  steam::ItemInfo out;
+steam::UpdateItemInfo parseItemInfo(const vector<Option>& options) {
+  steam::UpdateItemInfo out;
 
   for (auto& option : options) {
     if (option.name == "id")
@@ -327,7 +285,7 @@ steam::ItemInfo parseItemInfo(const vector<Option>& options) {
     else if (option.name == "folder")
       out.folder = parseAbsoluteFolderPath(option.value);
     else if (option.name == "preview")
-      out.preview = parseAbsoluteFilePath(option.value);
+      out.previewFile = parseAbsoluteFilePath(option.value);
     else if (option.name == "tag") {
       if (!out.tags)
         out.tags = vector<string>();
@@ -342,6 +300,17 @@ steam::ItemInfo parseItemInfo(const vector<Option>& options) {
   return out;
 }
 
+vector<steam::ItemId> parseItemIds(const vector<Option>& options) {
+  vector<steam::ItemId> out;
+  for (auto& option : options) {
+    if (option.name == "id")
+      out.emplace_back(parseId(option.value));
+    else
+      TEXT << "Ignored option: " << option.name;
+  }
+  return out;
+}
+
 void printHelp() {
   TEXT << "Commands:\n"
           "  help      print this help\n"
@@ -349,6 +318,8 @@ void printHelp() {
           "  update    update workshop item\n"
           "  add       add new workshop item\n"
           "  find      find workshop items\n"
+          "  info      prinf information about workshop items\n"
+          "            multiple id's can be passed\n"
           "\n"
           "Workshop item options:\n"
           "  id={}         unique identifier (the same id which is in steamcommunity.com URL)\n"
@@ -402,14 +373,17 @@ int main(int argc, char** argv) {
     auto itemInfo = parseItemInfo(options);
     if (!itemInfo.title || !itemInfo.folder)
       FATAL << "When adding item, title and folder have to be specified";
-    updateWorkshopItem(client, itemInfo);
+    updateItem(client, itemInfo);
   } else if (command == "update") {
     auto itemInfo = parseItemInfo(options);
     if (!itemInfo.id)
       FATAL << "When updating item, id has to be specified";
-    updateWorkshopItem(client, itemInfo);
+    updateItem(client, itemInfo);
   } else if (command == "find") {
     TEXT << "TODO: write me";
+  } else if (command == "info") {
+    auto ids = parseItemIds(options);
+    printItemsInfo(client, ids);
   } else {
     TEXT << "Invalid command: " << command;
     return 1;
