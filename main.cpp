@@ -140,13 +140,33 @@ void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
     exit(1);
   }
 
-  // TODO: retrieve author names
   auto infos = ugc.finishDetailsQuery(qid);
-  for (auto& info : infos) {
+  vector<optional<string>> ownerNames(infos.size());
+
+  for(auto &info : infos)
+    friends.requestUserInfo(info.ownerId, true);
+
+  auto retrieveUserNames = [&]() {
+    bool done = true;
+    for(int n = 0; n < infos.size(); n++) {
+      if(!ownerNames[n])
+        ownerNames[n] = friends.retrieveUserName(infos[n].ownerId);
+      if(!ownerNames[n])
+        done = false;
+    }
+    return done;
+  };
+
+  steam::sleepUntil(retrieveUserNames, 40);
+
+  for (int n = 0; n < infos.size(); n++) {
+    auto &info = infos[n];
+    string ownerName = ownerNames[n].value_or("?");
+
     TEXT << "Item #" << info.id << " ----------------------";
     TEXT << "       title: " << info.title;
     TEXT << " description: " << shortenDesc(info.description);
-    TEXT << "     ownerId: " << info.ownerId.ConvertToUint64();
+    TEXT << "       owner: " << ownerName << " [" << info.ownerId.ConvertToUint64() << "]";
     TEXT << "       score: " << info.score << "(+" << info.votesUp << " / -" << info.votesDown << ")";
     TEXT << "        tags: " << info.tags;
     TEXT << "";
