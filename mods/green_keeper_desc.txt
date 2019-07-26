@@ -1,3 +1,2 @@
-Green Keeper
 Changes the Keeper's color to green.
 Used for testing.

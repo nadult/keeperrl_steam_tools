@@ -8,6 +8,8 @@
 #include "steam_ugc.h"
 #include "steam_utils.h"
 
+#define TEXT InfoLog.get()
+
 void printFriends(steam::Client& client) {
   auto& friends = client.friends();
 
@@ -114,8 +116,9 @@ void printQueryInfo(steam::UGC& ugc, steam::UGC::QueryId qid) {
     auto results = ugc.queryResults(qid);
     printf("Query completed with %d / %d results\n", results.count, results.total);
 
+    steam::QueryDetails details;
     for (int n = 0; n < results.count; n++) {
-      auto details = ugc.queryDetails(qid, n);
+      ugc.queryDetails(qid, n, details);
       printf("  %d: %s\n", n, details.m_rgchTitle);
       string desc = shortenDesc(details.m_rgchDescription);
       printf("  desc: %s\n\n", desc.c_str());
@@ -148,7 +151,7 @@ void printWorkshopItems(steam::Client& client) {
   steam::QueryInfo qinfo;
   qinfo.keyValueTags = true;
   qinfo.longDescription = true;
-  auto qid = ugc.createQuery(qinfo, items);
+  auto qid = ugc.createDetailsQuery(qinfo, items);
 
   int num_retries = 20;
   for (int r = 0; r < num_retries; r++) {
@@ -175,7 +178,7 @@ void printAllWorkshopItems(steam::Client& client) {
   //qinfo.metadata = true;
   qinfo.onlyIds = true;
   qinfo.keyValueTags = true;
-  auto qid = ugc.createQuery(qinfo, k_EUGCQuery_RankedByVote, k_EUGCMatchingUGCType_All, utils.appId(), 1);
+  auto qid = ugc.createQuery(qinfo, SteamQueryOrder::date, 1);
 
   int num_retries = 20;
   for (int r = 0; r < num_retries; r++) {
@@ -193,37 +196,6 @@ void printAllWorkshopItems(steam::Client& client) {
     printf("Query takes too long!\n");
   ugc.finishQuery(qid);
 }
-
-struct ModInfo {
-  string name;
-  string description;
-
-  static optional<ModInfo> load(DirectoryPath folder) {
-    if (!folder.exists()) {
-      printf("Folder %s does not exist!\n", folder.getPath());
-      return none;
-    }
-
-    auto file = folder.file("mod_info.txt");
-    if (auto contents = file.readContents()) {
-      auto lines = split(*contents, {'\n'});
-      if (lines.size() < 2) {
-        printf("mod_info.txt should contain at least 2 lines:\n-first line: mod name\n-following lines: mod "
-               "description\n");
-        return none;
-      }
-
-      string description;
-      for (int n = 1; n < lines.size(); n++)
-        description += lines[n] + "\n";
-      return ModInfo{lines[0], description};
-    } else {
-      printf("Missing mod_info.txt file\n");
-    }
-
-    return none;
-  }
-};
 
 void updateWorkshopItem(steam::Client& client, const steam::ItemInfo& itemInfo) {
   auto& ugc = client.ugc();
@@ -247,101 +219,201 @@ void updateWorkshopItem(steam::Client& client, const steam::ItemInfo& itemInfo) 
   }
 }
 
-void updateWorkshopItem(steam::Client& client, optional<unsigned long long> id, string folderName) {
-  DirectoryPath folder(folderName);
-  auto modInfo = ModInfo::load(folder);
-  if (!modInfo)
-    return;
+struct Option {
+  string name, value;
+};
 
-  steam::ItemInfo itemInfo;
-  itemInfo.id = id;
-  itemInfo.description = modInfo->description;
-  itemInfo.title = modInfo->name;
-  itemInfo.folder = (string)folder.absolute().getPath();
-  itemInfo.version = 28; // TODO
-  //itemInfo.visibility = k_ERemoteStoragePublishedFileVisibilityPrivate; //TODO
-  updateWorkshopItem(client, itemInfo);
-}
+vector<Option> parseOptions(int argc, char** argv) {
+  vector<Option> out;
 
-void updateWorkshopPreview(steam::Client& client, unsigned long long id, string fileName) {
-  if (!isAbsolutePath(fileName.c_str()))
-    fileName = string(DirectoryPath::current().getPath()) + "/" + fileName;
-  auto filePath = FilePath::fromFullPath(fileName);
-  if (!filePath.exists()) {
-    printf("File %s does not exist!\n", fileName.c_str());
-    return;
-  }
-
-  steam::ItemInfo itemInfo;
-  itemInfo.preview = (string)filePath.getPath();
-  itemInfo.id = id;
-  updateWorkshopItem(client, itemInfo);
-}
-
-void printHelp() {
-  printf("Options:\n-help\n-friends\n-avatars\n-workshop\n-full-workshop\n-add-workshop-item "
-         "[folder]\n-update-workshop-item [id] [folder]\n-update-workshop-preview [id] [image]\n");
-}
-
-int main(int argc, char** argv) {
-  if (argc <= 1) {
-    printHelp();
-    return 0;
-  }
-
-  FatalLog.addOutput(DebugOutput::crash());
-  FatalLog.addOutput(DebugOutput::toStream(std::cerr));
-  InfoLog.addOutput(DebugOutput::toStream(std::cerr));
-
-  if (!steam::initAPI()) {
-    printf("Steam is not running\n");
-    return 0;
-  }
-
-  steam::Client client;
-  client.numberOfCurrentPlayers();
+  auto checkName = [](const string& name) {
+    for (auto c : name)
+      if (isspace(c))
+        FATAL << "Invalid command name: '" << name << "'";
+  };
 
   for (int n = 1; n < argc; n++) {
-    string option = argv[n];
-
-    if (option == "-friends")
-      printFriends(client);
-    else if (option == "-avatars")
-      printFriendAvatars(client);
-    else if (option == "-workshop")
-      printWorkshopItems(client);
-    else if (option == "-full-workshop")
-      printAllWorkshopItems(client);
-    else if (option == "-add-workshop-item") {
-      CHECK(n + 1 < argc);
-      auto folder = argv[++n];
-      updateWorkshopItem(client, none, folder);
-    } else if (option == "-update-workshop-item") {
-      CHECK(n + 2 < argc);
-      auto id = atoll(argv[++n]);
-      CHECK(id > 0);
-      auto folder = argv[++n];
-      updateWorkshopItem(client, id, folder);
-    } else if (option == "-update-workshop-preview") {
-      CHECK(n + 2 < argc);
-      auto id = atoll(argv[++n]);
-      CHECK(id > 0);
-      auto fileName = argv[++n];
-      updateWorkshopPreview(client, id, fileName);
-    } else if (option == "-help")
-      printHelp();
-    else {
-      printf("unknown option: %s\n", argv[n]);
-      return 0;
+    if (auto separator = strchr(argv[n], '=')) {
+      string name(argv[n], separator);
+      checkName(name);
+      string value(separator + 1);
+      out.emplace_back(Option{name, value});
+    } else {
+      string name(argv[n]);
+      checkName(name);
+      out.emplace_back(Option{name, {}});
     }
   }
 
-  steam::runCallbacks();
+  return out;
+}
 
-  if (auto nocp = client.numberOfCurrentPlayers())
-    printf("Number of players: %d\n", *nocp);
-  else
-    printf("Couldn't get nr of players...\n");
+string parseCommand(vector<Option>& options) {
+  string command = "help";
+
+  if (!options.empty()) {
+    if (!options[0].value.empty())
+      FATAL << "Command shouldn't have a value specified";
+    command = options[0].name;
+    options.removeIndexPreserveOrder(0);
+  }
+  return command;
+}
+
+unsigned long long parseId(const string& value) {
+  auto id = atoll(value.c_str());
+  if (id <= 0)
+    FATAL << "Invalid ID specified";
+  return id;
+}
+
+string parseAbsoluteFilePath(string fileName) {
+  if (!isAbsolutePath(fileName.c_str()))
+    fileName = string(DirectoryPath::current().getPath()) + "/" + fileName;
+  auto filePath = FilePath::fromFullPath(fileName);
+  if (!filePath.exists())
+    FATAL << "File '" << fileName << "' does not exist!";
+  return filePath.getPath();
+}
+
+string parseAbsoluteFolderPath(const string& value) {
+  auto path = DirectoryPath(value).absolute();
+  if (!path.exists())
+    FATAL << "Folder '" << path.getPath() << "' does not exist!";
+  return path.getPath();
+}
+
+string loadFileContents(const string& fileName) {
+  auto filePath = FilePath::fromFullPath(fileName);
+  if (!filePath.exists())
+    FATAL << "File '" << fileName << "' does not exist!";
+  auto contents = filePath.readContents();
+  if (!contents)
+    FATAL << "Error while reading file '" << fileName << "'";
+  return *contents;
+}
+
+auto parseVisibility(const string& value) {
+  using Vis = SteamItemVisibility;
+  if (value == "public")
+    return Vis::public_;
+  else if (value == "private")
+    return Vis::private_;
+  else if (value == "friends")
+    return Vis::friends;
+  FATAL << "Invalid visibility value: '" << value << "'";
+  return Vis::private_;
+}
+
+void printValidTags();
+
+string parseTag(const string& value) {
+  for (auto tag : steam::validTags())
+    if (value == tag)
+      return value;
+  printValidTags();
+  FATAL << "Invalid tag specified: '" << value << "'";
+  return {};
+}
+
+steam::ItemInfo parseItemInfo(const vector<Option>& options) {
+  steam::ItemInfo out;
+
+  for (auto& option : options) {
+    if (option.name == "id")
+      out.id = parseId(option.value);
+    else if (option.name == "title")
+      out.title = option.value; // TODO: validate?
+    else if (option.name == "folder")
+      out.folder = parseAbsoluteFolderPath(option.value);
+    else if (option.name == "preview")
+      out.preview = parseAbsoluteFilePath(option.value);
+    else if (option.name == "tag") {
+      if (!out.tags)
+        out.tags = vector<string>();
+      out.tags->emplace_back(parseTag(option.value));
+    } else if (option.name == "remove-tags")
+      out.tags = vector<string>();
+    else if (option.name == "desc")
+      out.description = loadFileContents(option.value);
+    else if (option.name == "visibility")
+      out.visibility = parseVisibility(option.value);
+  }
+  return out;
+}
+
+void printHelp() {
+  TEXT << "Commands:\n"
+          "  help      print this help\n"
+          "  help-tags print list of valid tags\n"
+          "  update    update workshop item\n"
+          "  add       add new workshop item\n"
+          "  find      find workshop items\n"
+          "\n"
+          "Workshop item options:\n"
+          "  id={}         unique identifier (the same id which is in steamcommunity.com URL)\n"
+          "  title={}      specify new title\n"
+          "  folder={}     specify folder with mod contents\n"
+          "  preview={}    specify file with preview image\n"
+          "  tag={}        specify tag (you can pass multiple)\n"
+          "  remove-tags   remove all tags\n"
+          "  desc={}       specify file with item description\n"
+          "  visibility={} public, friends or private\n"
+          "\n"
+          "Find options:\n"
+          "  user={}      specify user name\n"
+          "  current-user list only items for current user\n"
+          "\n"
+          "Examples:\n"
+          "$ steam_utils add name=\"My new mod\" folder=\"my_new_mod/\" desc=my_new_mod.txt tag=\"Alpha 29\"\n"
+          "$ steam_utils update id=1806744451 desc=updated_description.txt\n";
+}
+
+// TODO: tabki trzeba najpierw włączyć na steam partnerze
+void printValidTags() {
+  TEXT << "Valid tags:";
+  for (auto tag : steam::validTags())
+    TEXT << "'" << tag << "'";
+  TEXT << "\n";
+}
+
+int main(int argc, char** argv) {
+  FatalLog.addOutput(DebugOutput::exitProgram());
+  FatalLog.addOutput(DebugOutput::toStream(std::cerr));
+  InfoLog.addOutput(DebugOutput::toStream(std::cerr));
+
+  auto options = parseOptions(argc, argv);
+  auto command = parseCommand(options);
+  if (command == "help") {
+    printHelp();
+    return 0;
+  } else if (command == "help-tags") {
+    printValidTags();
+    return 0;
+  }
+
+  if (!steam::initAPI()) {
+    printf("Steam is not running\n");
+    return 1;
+  }
+  steam::Client client;
+
+  if (command == "add") {
+    auto itemInfo = parseItemInfo(options);
+    if (!itemInfo.title || !itemInfo.folder)
+      FATAL << "When adding item, title and folder have to be specified";
+    updateWorkshopItem(client, itemInfo);
+  } else if (command == "update") {
+    auto itemInfo = parseItemInfo(options);
+    if (!itemInfo.id)
+      FATAL << "When updating item, id has to be specified";
+    updateWorkshopItem(client, itemInfo);
+  } else if (command == "find") {
+    TEXT << "TODO: write me";
+  } else {
+    TEXT << "Invalid command: " << command;
+    return 1;
+  }
 
   return 0;
 }

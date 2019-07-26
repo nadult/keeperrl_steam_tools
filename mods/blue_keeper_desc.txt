@@ -1,3 +1,2 @@
-Blue Keeper
 Changes the Keeper's color to blue.
 Used for testing.
