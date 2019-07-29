@@ -76,29 +76,6 @@ void printFriendAvatars(steam::Client& client) {
     usleep(100 * 1000);
   }
   printf("Completed: %d\n", num_completed);
-}
-
-void printIndent(int size) {
-  for (int n = 0; n < size; n++)
-    printf(" ");
-}
-
-void printFiles(string path_str, int indent, bool with_subdirs) {
-  DirectoryPath path(path_str);
-  auto files = path.getFiles();
-  auto dirs = path.getSubDirs();
-
-  for (auto& dir : dirs) {
-    printIndent(indent);
-    printf("%s/\n", dir.c_str());
-    if (with_subdirs)
-      printFiles(path_str + "/" + dir, indent + 2, with_subdirs);
-  }
-  for (auto& file : files) {
-    printIndent(indent);
-    auto fname = split(file.getPath(), {'/'}).back();
-    printf("%s\n", fname.c_str());
-  }
 }*/
 
 string shortenDesc(string desc, int maxLen = 60) {
@@ -167,9 +144,14 @@ void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
     auto& info = infos[n];
     string ownerName = ownerNames[n].value_or("?");
 
+    if (!info.isValid) {
+      TEXT << "Item " << info.id << " INVALID!";
+      continue;
+    }
     TEXT << "Item " << info.id << " ----------------------";
     TEXT << "        title: " << info.title;
     TEXT << "  description: " << shortenDesc(info.description);
+    TEXT << "        state: " << steam::itemStateText(ugc.state(info.id));
     TEXT << "        owner: " << ownerName << " [" << info.ownerId.ConvertToUint64() << "]";
     TEXT << "        score: " << info.score << "(+" << info.votesUp << " / -" << info.votesDown << ")";
     TEXT << "         tags: " << info.tags;
@@ -243,6 +225,57 @@ void findItems(steam::Client& client, const steam::FindItemInfo& findInfo) {
   }
 
   TEXT << "\n" << itemCount << " items found.";
+}
+
+void downloadItem(steam::UGC& ugc, steam::ItemId id) {
+  if (!ugc.downloadItem(id, true)) {
+    TEXT << "   Error while downloading.";
+    return;
+  }
+
+  int lastPercentage = 0;
+  auto downloadCompleted = [&]() {
+    if (auto di = ugc.downloadInfo(id)) {
+      int percentage = double(di->bytesDownloaded) * 100 / di->bytesTotal;
+      while (lastPercentage + 1 < percentage) {
+        printf(".");
+        fflush(stdout);
+        lastPercentage += 2;
+      }
+    }
+    return !ugc.getDownloadedItems().empty();
+  };
+
+  printf("   [");
+  fflush(stdout);
+  steam::sleepUntil(downloadCompleted, 100 * 20, milliseconds(50));
+  printf("]\n");
+  fflush(stdout);
+}
+
+void downloadItems(steam::Client& client, const vector<steam::ItemId>& ids) {
+  auto& ugc = client.ugc();
+
+  auto qid = ugc.createDetailsQuery({}, ids);
+  ugc.waitForQueries({qid}, 50);
+  handleQueryError(ugc, qid);
+  auto infos = ugc.finishDetailsQuery(qid);
+
+  for (int n = 0; n < ids.size(); n++) {
+    TEXT << "*) Item " << ids[n] << " '" << infos[n].title << "':";
+    auto state = ugc.state(ids[n]);
+    TEXT << "   State: " << steam::itemStateText(state);
+    if (!(state & EItemState::k_EItemStateInstalled))
+      downloadItem(ugc, ids[n]);
+
+    if (auto installInfo = ugc.installInfo(ids[n])) {
+      TEXT << "   Installed at: " << installInfo->folder;
+      TEXT << "   Size: " << installInfo->sizeOnDisk;
+    } else {
+      TEXT << "   Invalid state: " << steam::itemStateText(ugc.state(ids[n]));
+    }
+    TEXT << "";
+  }
 }
 
 struct Option {
@@ -417,9 +450,10 @@ void printHelp() {
   TEXT << "Commands:\n"
           "  help      print this help\n"
           "  help-tags print list of game-accepted tags\n"
-          "  update    update workshop item\n"
           "  add       add new workshop item\n"
+          "  update    update workshop item\n"
           "  find      look for workshop items\n"
+          "  download  download specified items to local steam cache\n"
           "  info      prinf information about workshop items\n"
           "            multiple id's can be passed\n"
           "\n"
@@ -440,6 +474,9 @@ void printHelp() {
           "  max-count={} limit nr of items fetched\n"
           "  order={}     order in which items will be returned; valid arguments:\n"
           "               votes, date, subscriptions, playtime\n"
+          "\n"
+          "Download / Info options:\n"
+          "  id={}        id of item to download / get info about; it can be specified multiple times\n"
           "\n"
           "Examples:\n"
           "$ steam_utils add name=\"My new mod\" folder=\"my_new_mod/\" desc=my_new_mod.txt tag=\"Alpha 29\"\n"
@@ -492,6 +529,9 @@ int main(int argc, char** argv) {
   } else if (command == "info") {
     auto ids = parseItemIds(options);
     printItemsInfo(client, ids);
+  } else if (command == "download") {
+    auto ids = parseItemIds(options);
+    downloadItems(client, ids);
   } else {
     TEXT << "Invalid command: " << command;
     return 1;
