@@ -177,23 +177,29 @@ void updateItem(steam::Client& client, const steam::UpdateItemInfo& itemInfo) {
   auto& ugc = client.ugc();
   bool legal = false; // TODO: handle it
 
-  ugc.updateItem(itemInfo);
-  while (true) {
-    steam::runCallbacks();
+  ugc.beginUpdateItem(itemInfo);
 
-    // TODO: fix this
-    if (auto result = ugc.tryUpdateItem()) {
-      if (result->valid()) {
-        printf("Item %s!\n", itemInfo.id ? "updated" : "added");
-        legal |= result->requireLegalAgreement;
-      } else {
-        printf("Error while %s new workshop item: %s\n", result->failedWhenCreating ? "creating" : "updating",
-               steam::errorText(result->result).c_str());
-        return;
-      }
-      break;
-    }
-    usleep(100 * 1000);
+  // Item update may take some time; Should we loop indefinitely?
+  optional<steam::UpdateItemResult> result;
+  steam::sleepUntil([&]() { return (bool)(result = ugc.tryUpdateItem()); }, 60 * 10, milliseconds(1000));
+
+  if (!result) {
+    TEXT << "Timeout!\n";
+    ugc.cancelUpdateItem();
+    return;
+  }
+
+  if (result->valid()) {
+    TEXT << "Item " << (itemInfo.id ? "created" : "updated") << "!";
+    if (!itemInfo.id)
+      TEXT << "ID: " << *result->itemId;
+    legal |= result->requireLegalAgreement;
+  } else {
+    TEXT << *result->error;
+
+    // Remove partially created item
+    if (!itemInfo.id && result->itemId)
+      ugc.deleteItem(*result->itemId);
   }
 }
 
@@ -369,7 +375,7 @@ void printValidTags() {
 }
 
 int main(int argc, char** argv) {
-  FatalLog.addOutput(DebugOutput::exitProgram());
+  FatalLog.addOutput(DebugOutput::crash());
   FatalLog.addOutput(DebugOutput::toStream(std::cerr));
   InfoLog.addOutput(DebugOutput::toStream(std::cerr));
 
