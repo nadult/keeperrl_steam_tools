@@ -166,7 +166,7 @@ void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
     auto& info = infos[n];
     string ownerName = ownerNames[n].value_or("?");
 
-    TEXT << "Item #" << info.id << " ----------------------";
+    TEXT << "Item " << info.id << " ----------------------";
     TEXT << "       title: " << info.title;
     TEXT << " description: " << shortenDesc(info.description);
     TEXT << "       owner: " << ownerName << " [" << info.ownerId.ConvertToUint64() << "]";
@@ -201,7 +201,7 @@ void updateItem(steam::Client& client, const steam::UpdateItemInfo& itemInfo) {
   }
 
   if (result->valid()) {
-    TEXT << "Item " << (itemInfo.id ? "created" : "updated") << "!";
+    TEXT << "Item " << (itemInfo.id ? "updated" : "created") << "!";
     if (!itemInfo.id)
       TEXT << "ID: " << *result->itemId;
     legal |= result->requireLegalAgreement;
@@ -331,13 +331,18 @@ auto parseVisibility(const string& value) {
 
 void printValidTags();
 
-string parseTag(const string& value) {
-  for (auto tag : steam::validTags())
-    if (value == tag)
-      return value;
-  printValidTags();
-  FATAL << "Invalid tag specified: '" << value << "'";
-  return {};
+string parseTags(const string& list) {
+  auto tags = steam::parseTagList(list);
+  for (auto& tag : tags) {
+    bool valid = tag.size() <= 255;
+    for (auto c : tag)
+      if (!isprint(c) || isspace(c))
+        valid = false;
+    if (!valid)
+      FATAL << "Invalid tag name: '" << tag << "'\n"
+            << "Max length: 255, spaces and special characters are illegal\n";
+  }
+  return steam::formatTags(tags);
 }
 
 steam::UpdateItemInfo parseItemInfo(const vector<Option>& options) {
@@ -352,12 +357,8 @@ steam::UpdateItemInfo parseItemInfo(const vector<Option>& options) {
       out.folder = parseAbsoluteFolderPath(option.value);
     else if (option.name == "preview")
       out.previewFile = parseAbsoluteFilePath(option.value);
-    else if (option.name == "tag") {
-      if (!out.tags)
-        out.tags = vector<string>();
-      out.tags->emplace_back(parseTag(option.value));
-    } else if (option.name == "remove-tags")
-      out.tags = vector<string>();
+    else if (option.name == "tags")
+      out.tags = parseTags(option.value);
     else if (option.name == "desc")
       out.description = loadFileContents(option.value);
     else if (option.name == "visibility")
@@ -413,7 +414,7 @@ auto parseFindInfo(const vector<Option>& options) {
 void printHelp() {
   TEXT << "Commands:\n"
           "  help      print this help\n"
-          "  help-tags print list of valid tags\n"
+          "  help-tags print list of game-accepted tags\n"
           "  update    update workshop item\n"
           "  add       add new workshop item\n"
           "  find      look for workshop items\n"
@@ -425,8 +426,7 @@ void printHelp() {
           "  title={}      specify new title\n"
           "  folder={}     specify folder with mod contents\n"
           "  preview={}    specify file with preview image\n"
-          "  tag={}        specify tag (you can pass multiple)\n"
-          "  remove-tags   remove all tags\n"
+          "  tags={}       specify tags separated by comma; you can empty list to remove all tags\n"
           "  desc={}       specify file with item description\n"
           "  visibility={} public, friends or private\n"
           "\n"
@@ -445,7 +445,7 @@ void printHelp() {
 
 // TODO: tabki trzeba najpierw włączyć na steam partnerze
 void printValidTags() {
-  TEXT << "Valid tags:";
+  TEXT << "Tags accepted by KeeperRL:";
   for (auto tag : steam::validTags())
     TEXT << "'" << tag << "'";
   TEXT << "\n";
