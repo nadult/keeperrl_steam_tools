@@ -137,8 +137,7 @@ void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
   qinfo.keyValueTags = true;
   qinfo.longDescription = true;
   qinfo.metadata = true;
-  //qinfo.playtimeStats = true; // TODO
-  //qinfo.playtimeStatsDays = 1000;
+  qinfo.playtimeStatsDays = 5000;
   auto qid = ugc.createDetailsQuery(qinfo, items);
 
   ugc.waitForQueries({qid}, 100);
@@ -173,6 +172,14 @@ void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
     TEXT << "       owner: " << ownerName << " [" << info.ownerId.ConvertToUint64() << "]";
     TEXT << "       score: " << info.score << "(+" << info.votesUp << " / -" << info.votesDown << ")";
     TEXT << "        tags: " << info.tags;
+    TEXT << "       stats: " << info.stats->subscriptions << " subscriptions, "
+                             << info.stats->followers << " followers, "
+                             << info.stats->favorites << " favorites";
+    TEXT << "              " << info.stats->secondsPlayed / 3600 << " hours played, "
+                             << info.stats->playtimeSessions << " times played";
+    TEXT << "              " << info.stats->comments << " comments, "
+                             << info.stats->uniqueWebsiteViews << " website views";
+                                
     TEXT << "";
   }
 }
