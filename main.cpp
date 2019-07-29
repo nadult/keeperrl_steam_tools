@@ -106,17 +106,23 @@ void handleQueryError(steam::UGC& ugc, int qid) {
   }
 }
 
-void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
+struct GetItemInfo {
+  vector<steam::ItemId> ids;
+  bool displayMetadata = false;
+  bool displayKeyValues = false;
+};
+
+void printItemsInfo(steam::Client& client, const GetItemInfo& printInfo) {
   auto& ugc = client.ugc();
   auto& utils = client.utils();
   auto& friends = client.friends();
 
   steam::ItemDetailsInfo qinfo;
-  qinfo.keyValueTags = true;
   qinfo.longDescription = true;
-  qinfo.metadata = true;
+  qinfo.keyValueTags = printInfo.displayKeyValues;
+  qinfo.metadata = printInfo.displayMetadata;
   qinfo.playtimeStatsDays = 5000;
-  auto qid = ugc.createDetailsQuery(qinfo, items);
+  auto qid = ugc.createDetailsQuery(qinfo, printInfo.ids);
 
   ugc.waitForQueries({qid}, 100);
   handleQueryError(ugc, qid);
@@ -151,7 +157,7 @@ void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
     TEXT << "Item " << info.id << " ----------------------";
     TEXT << "        title: " << info.title;
     TEXT << "  description: " << shortenDesc(info.description);
-    TEXT << "        state: " << steam::itemStateText(ugc.state(info.id));
+    TEXT << "        state: " << steam::itemStateText(ugc.itemState(info.id));
     TEXT << "        owner: " << ownerName << " [" << info.ownerId.ConvertToUint64() << "]";
     TEXT << "        score: " << info.score << "(+" << info.votesUp << " / -" << info.votesDown << ")";
     TEXT << "         tags: " << info.tags;
@@ -164,13 +170,33 @@ void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
                               << info.stats->playtimeSessions << " times played";
     TEXT << "               " << info.stats->comments << " comments, "
                               << info.stats->uniqueWebsiteViews << " website views";
-    TEXT << "";
+
+    if (printInfo.displayKeyValues) {
+      TEXT << "    key-values:";
+      for (auto& pair : info.keyValues)
+        TEXT << "  " << pair.first << ": '" << pair.second << "'";
+    }
+    if (printInfo.displayMetadata)
+      TEXT << "     metadata: '" << info.metadata << "'";
   }
 }
 
-void updateItem(steam::Client& client, const steam::UpdateItemInfo& itemInfo) {
+void updateItem(steam::Client& client, steam::UpdateItemInfo& itemInfo) {
   auto& ugc = client.ugc();
   bool legal = false; // TODO: handle it
+
+  optional<int> version;
+  if (itemInfo.id) {
+    steam::ItemDetailsInfo info;
+    info.metadata = true;
+    auto qid = ugc.createDetailsQuery(info, {*itemInfo.id});
+    ugc.waitForQueries({qid}, 50);
+    handleQueryError(ugc, qid);
+    auto& metadata = ugc.finishDetailsQuery(qid)[0].metadata;
+    version = steam::getItemVersion(metadata);
+  }
+  version = version ? *version + 1 : 1;
+  itemInfo.metadata = toString(version);
 
   ugc.beginUpdateItem(itemInfo);
 
@@ -196,6 +222,7 @@ void updateItem(steam::Client& client, const steam::UpdateItemInfo& itemInfo) {
     if (!itemInfo.id && result->itemId)
       ugc.deleteItem(*result->itemId);
   }
+  TEXT << "Version: " << *version;
 }
 
 void findItems(steam::Client& client, const steam::FindItemInfo& findInfo) {
@@ -263,7 +290,7 @@ void downloadItems(steam::Client& client, const vector<steam::ItemId>& ids) {
 
   for (int n = 0; n < ids.size(); n++) {
     TEXT << "*) Item " << ids[n] << " '" << infos[n].title << "':";
-    auto state = ugc.state(ids[n]);
+    auto state = ugc.itemState(ids[n]);
     TEXT << "   State: " << steam::itemStateText(state);
     if (!(state & EItemState::k_EItemStateInstalled))
       downloadItem(ugc, ids[n]);
@@ -272,7 +299,7 @@ void downloadItems(steam::Client& client, const vector<steam::ItemId>& ids) {
       TEXT << "   Installed at: " << installInfo->folder;
       TEXT << "   Size: " << installInfo->sizeOnDisk;
     } else {
-      TEXT << "   Invalid state: " << steam::itemStateText(ugc.state(ids[n]));
+      TEXT << "   Invalid state: " << steam::itemStateText(ugc.itemState(ids[n]));
     }
     TEXT << "";
   }
@@ -402,11 +429,15 @@ steam::UpdateItemInfo parseItemInfo(const vector<Option>& options) {
   return out;
 }
 
-vector<steam::ItemId> parseItemIds(const vector<Option>& options) {
-  vector<steam::ItemId> out;
+GetItemInfo parseGetItemInfo(const vector<Option>& options, bool withFlags) {
+  GetItemInfo out;
   for (auto& option : options) {
     if (option.name == "id")
-      out.emplace_back(parseId(option.value));
+      out.ids.emplace_back(parseId(option.value));
+    else if (withFlags && option.name == "metadata")
+      out.displayMetadata = true;
+    else if (withFlags && option.name == "key-values")
+      out.displayKeyValues = true;
     else
       TEXT << "Ignored option: " << option.name;
   }
@@ -477,6 +508,8 @@ void printHelp() {
           "\n"
           "Download / Info options:\n"
           "  id={}        id of item to download / get info about; it can be specified multiple times\n"
+          "  key-values   display key-values\n"
+          "  metadata     display metadata information\n"
           "\n"
           "Examples:\n"
           "$ steam_utils add name=\"My new mod\" folder=\"my_new_mod/\" desc=my_new_mod.txt tag=\"Alpha 29\"\n"
@@ -527,11 +560,11 @@ int main(int argc, char** argv) {
     auto findInfo = parseFindInfo(options);
     findItems(client, findInfo);
   } else if (command == "info") {
-    auto ids = parseItemIds(options);
-    printItemsInfo(client, ids);
+    auto info = parseGetItemInfo(options, true);
+    printItemsInfo(client, info);
   } else if (command == "download") {
-    auto ids = parseItemIds(options);
-    downloadItems(client, ids);
+    auto info = parseGetItemInfo(options, false);
+    downloadItems(client, info.ids);
   } else {
     TEXT << "Invalid command: " << command;
     return 1;
