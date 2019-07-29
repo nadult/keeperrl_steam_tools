@@ -119,12 +119,21 @@ string shortenDesc(string desc, int maxLen = 60) {
   return desc;
 }
 
+void handleQueryError(steam::UGC& ugc, int qid) {
+  if (ugc.queryStatus(qid) != QueryStatus::completed) {
+    auto error = ugc.queryError(qid, "Query took too much time");
+    TEXT << error;
+    ugc.finishQuery(qid);
+    exit(1);
+  }
+}
+
 void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
   auto& ugc = client.ugc();
   auto& utils = client.utils();
   auto& friends = client.friends();
 
-  steam::DetailsQueryInfo qinfo;
+  steam::ItemDetailsInfo qinfo;
   qinfo.keyValueTags = true;
   qinfo.longDescription = true;
   qinfo.metadata = true;
@@ -133,25 +142,20 @@ void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
   auto qid = ugc.createDetailsQuery(qinfo, items);
 
   ugc.waitForQueries({qid}, 100);
-  if (ugc.queryStatus(qid) != QueryStatus::completed) {
-    auto error = ugc.queryError(qid, "Query took too much time");
-    TEXT << error;
-    ugc.finishQuery(qid);
-    exit(1);
-  }
+  handleQueryError(ugc, qid);
 
   auto infos = ugc.finishDetailsQuery(qid);
   vector<optional<string>> ownerNames(infos.size());
 
-  for(auto &info : infos)
+  for (auto& info : infos)
     friends.requestUserInfo(info.ownerId, true);
 
   auto retrieveUserNames = [&]() {
     bool done = true;
-    for(int n = 0; n < infos.size(); n++) {
-      if(!ownerNames[n])
+    for (int n = 0; n < infos.size(); n++) {
+      if (!ownerNames[n])
         ownerNames[n] = friends.retrieveUserName(infos[n].ownerId);
-      if(!ownerNames[n])
+      if (!ownerNames[n])
         done = false;
     }
     return done;
@@ -160,7 +164,7 @@ void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
   steam::sleepUntil(retrieveUserNames, 40);
 
   for (int n = 0; n < infos.size(); n++) {
-    auto &info = infos[n];
+    auto& info = infos[n];
     string ownerName = ownerNames[n].value_or("?");
 
     TEXT << "Item #" << info.id << " ----------------------";
@@ -201,6 +205,35 @@ void updateItem(steam::Client& client, const steam::UpdateItemInfo& itemInfo) {
     if (!itemInfo.id && result->itemId)
       ugc.deleteItem(*result->itemId);
   }
+}
+
+void findItems(steam::Client& client, const steam::FindItemInfo& findInfo) {
+  auto& ugc = client.ugc();
+  auto maxCount = findInfo.maxItemCount.value_or(INT_MAX);
+
+  int pageId = 1;
+  int itemCount = 0;
+
+  while (itemCount < maxCount) {
+    auto qid = ugc.createFindQuery(findInfo, pageId++);
+    ugc.waitForQueries({qid}, 50);
+    handleQueryError(ugc, qid);
+
+    auto ids = ugc.finishFindQuery(qid);
+    if (ids.empty())
+      break;
+
+    qid = ugc.createDetailsQuery({}, ids);
+    ugc.waitForQueries({qid}, 50);
+    handleQueryError(ugc, qid);
+
+    auto infos = ugc.finishDetailsQuery(qid);
+    for (int n = 0; n < ids.size(); n++)
+      printf("%12llu  %s\n", (unsigned long long)ids[n], infos[n].title.c_str());
+    itemCount += ids.size();
+  }
+
+  TEXT << "\n" << itemCount << " items found.";
 }
 
 struct Option {
@@ -337,17 +370,50 @@ vector<steam::ItemId> parseItemIds(const vector<Option>& options) {
   return out;
 }
 
+steam::FindOrder parseFindOrder(const string& value) {
+  if (auto order = EnumInfo<steam::FindOrder>::fromStringSafe(value))
+    return *order;
+  FATAL << "Invalid order specified: " << value;
+  return {};
+}
+
+int parseItemCount(const string& value) {
+  auto count = atoi(value.c_str());
+  if (count <= 0)
+    FATAL << "Invalid value specified";
+  return count;
+}
+
+auto parseFindInfo(const vector<Option>& options) {
+  steam::FindItemInfo out;
+  for (auto& option : options) {
+    if (option.name == "phrase")
+      out.searchText = option.value;
+    else if (option.name == "tags")
+      out.tags = option.value;
+    else if (option.name == "any-tag")
+      out.anyTag = true;
+    else if (option.name == "order")
+      out.order = parseFindOrder(option.value);
+    else if (option.name == "max-count")
+      out.maxItemCount = parseItemCount(option.value);
+    else
+      TEXT << "Ignored option: " << option.name;
+  }
+  return out;
+}
+
 void printHelp() {
   TEXT << "Commands:\n"
           "  help      print this help\n"
           "  help-tags print list of valid tags\n"
           "  update    update workshop item\n"
           "  add       add new workshop item\n"
-          "  find      find workshop items\n"
+          "  find      look for workshop items\n"
           "  info      prinf information about workshop items\n"
           "            multiple id's can be passed\n"
           "\n"
-          "Workshop item options:\n"
+          "Add / Update options:\n"
           "  id={}         unique identifier (the same id which is in steamcommunity.com URL)\n"
           "  title={}      specify new title\n"
           "  folder={}     specify folder with mod contents\n"
@@ -358,12 +424,16 @@ void printHelp() {
           "  visibility={} public, friends or private\n"
           "\n"
           "Find options:\n"
-          "  user={}      specify user name\n"
-          "  current-user list only items for current user\n"
+          "  phrase={}    fitler mods by specified phrase (from title or description)\n"
+          "  tags={}      list of tags separated by comma; mod will have to match all of them\n"
+          "               unless 'any-tag' option is used\n"
+          "  any-tag      return mods which match at least one tag\n"
+          "  max-count={} limit nr of items fetched\n"
           "\n"
           "Examples:\n"
           "$ steam_utils add name=\"My new mod\" folder=\"my_new_mod/\" desc=my_new_mod.txt tag=\"Alpha 29\"\n"
-          "$ steam_utils update id=1806744451 desc=updated_description.txt\n";
+          "$ steam_utils update id=1806744451 desc=updated_description.txt\n"
+          "$ steam_uptils find tags=\"Alpha 29\"\n";
 }
 
 // TODO: tabki trzeba najpierw włączyć na steam partnerze
@@ -406,7 +476,8 @@ int main(int argc, char** argv) {
       FATAL << "When updating item, id has to be specified";
     updateItem(client, itemInfo);
   } else if (command == "find") {
-    TEXT << "TODO: write me";
+    auto findInfo = parseFindInfo(options);
+    findItems(client, findInfo);
   } else if (command == "info") {
     auto ids = parseItemIds(options);
     printItemsInfo(client, ids);
