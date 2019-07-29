@@ -1,5 +1,6 @@
-#include <stdio.h>
-#include <unistd.h>
+#include <iomanip>
+#include <ctime>
+#include <cstdio>
 
 #include "directory_path.h"
 #include "file_path.h"
@@ -167,19 +168,20 @@ void printItemsInfo(steam::Client& client, const vector<steam::ItemId>& items) {
     string ownerName = ownerNames[n].value_or("?");
 
     TEXT << "Item " << info.id << " ----------------------";
-    TEXT << "       title: " << info.title;
-    TEXT << " description: " << shortenDesc(info.description);
-    TEXT << "       owner: " << ownerName << " [" << info.ownerId.ConvertToUint64() << "]";
-    TEXT << "       score: " << info.score << "(+" << info.votesUp << " / -" << info.votesDown << ")";
-    TEXT << "        tags: " << info.tags;
-    TEXT << "       stats: " << info.stats->subscriptions << " subscriptions, "
-                             << info.stats->followers << " followers, "
-                             << info.stats->favorites << " favorites";
-    TEXT << "              " << info.stats->secondsPlayed / 3600 << " hours played, "
-                             << info.stats->playtimeSessions << " times played";
-    TEXT << "              " << info.stats->comments << " comments, "
-                             << info.stats->uniqueWebsiteViews << " website views";
-                                
+    TEXT << "        title: " << info.title;
+    TEXT << "  description: " << shortenDesc(info.description);
+    TEXT << "        owner: " << ownerName << " [" << info.ownerId.ConvertToUint64() << "]";
+    TEXT << "        score: " << info.score << "(+" << info.votesUp << " / -" << info.votesDown << ")";
+    TEXT << "         tags: " << info.tags;
+    TEXT << "creation time: " << std::put_time(std::localtime(&info.creationTime), "%c %Z");
+    TEXT << "  update time: " << std::put_time(std::localtime(&info.updateTime), "%c %Z");
+    TEXT << "        stats: " << info.stats->subscriptions << " subscriptions, "
+                              << info.stats->followers << " followers, "
+                              << info.stats->favorites << " favorites";
+    TEXT << "               " << info.stats->secondsPlayed / 3600 << " hours played, "
+                              << info.stats->playtimeSessions << " times played";
+    TEXT << "               " << info.stats->comments << " comments, "
+                              << info.stats->uniqueWebsiteViews << " website views";
     TEXT << "";
   }
 }
@@ -436,6 +438,8 @@ void printHelp() {
           "               unless 'any-tag' option is used\n"
           "  any-tag      return mods which match at least one tag\n"
           "  max-count={} limit nr of items fetched\n"
+          "  order={}     order in which items will be returned; valid arguments:\n"
+          "               votes, date, subscriptions, playtime\n"
           "\n"
           "Examples:\n"
           "$ steam_utils add name=\"My new mod\" folder=\"my_new_mod/\" desc=my_new_mod.txt tag=\"Alpha 29\"\n"
