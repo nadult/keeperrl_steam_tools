@@ -158,7 +158,7 @@ void printItemsInfo(steam::Client& client, const GetItemInfo& printInfo) {
     TEXT << "        title: " << info.title;
     TEXT << "  description: " << shortenDesc(info.description);
     TEXT << "        state: " << steam::itemStateText(ugc.itemState(info.id));
-    TEXT << "        owner: " << ownerName << " [" << info.ownerId.ConvertToUint64() << "]";
+    TEXT << "        owner: " << ownerName << " [" << info.ownerId << "]";
     TEXT << "        score: " << info.score << "(+" << info.votesUp << " / -" << info.votesDown << ")";
     TEXT << "         tags: " << info.tags;
     TEXT << "creation time: " << std::put_time(std::localtime(&info.creationTime), "%c %Z");
@@ -166,7 +166,11 @@ void printItemsInfo(steam::Client& client, const GetItemInfo& printInfo) {
     TEXT << "        stats: " << info.stats->subscriptions << " subscriptions, "
                               << info.stats->followers << " followers, "
                               << info.stats->favorites << " favorites";
-    TEXT << "               " << info.stats->secondsPlayed / 3600 << " hours played, "
+    int hours = info.stats->secondsPlayed / 3600;
+    int minutes = info.stats->secondsPlayed / 60 - hours * 60;
+    int seconds = info.stats->secondsPlayed - hours * 3600 - minutes * 60;
+    TEXT << "               " << hours << " hours, " << minutes << " minutes and "
+                              << seconds << " seconds played; "
                               << info.stats->playtimeSessions << " times played";
     TEXT << "               " << info.stats->comments << " comments, "
                               << info.stats->uniqueWebsiteViews << " website views";
@@ -350,11 +354,11 @@ string parseCommand(vector<Option>& options) {
   return command;
 }
 
-unsigned long long parseId(const string& value) {
+steam::ItemId parseItemId(const string& value) {
   auto id = atoll(value.c_str());
   if (id <= 0)
     FATAL << "Invalid ID specified";
-  return id;
+  return steam::ItemId(id);
 }
 
 string parseAbsoluteFilePath(string fileName) {
@@ -429,7 +433,7 @@ steam::UpdateItemInfo parseItemInfo(const vector<Option>& options) {
 
   for (auto& option : options) {
     if (option.name == "id")
-      out.id = parseId(option.value);
+      out.id = parseItemId(option.value);
     else if (option.name == "title")
       out.title = option.value; // TODO: validate?
     else if (option.name == "folder")
@@ -452,7 +456,7 @@ GetItemInfo parseGetItemInfo(const vector<Option>& options, bool withFlags) {
   GetItemInfo out;
   for (auto& option : options) {
     if (option.name == "id")
-      out.ids.emplace_back(parseId(option.value));
+      out.ids.emplace_back(parseItemId(option.value));
     else if (withFlags && option.name == "metadata")
       out.displayMetadata = true;
     else if (withFlags && option.name == "key-values")
