@@ -198,6 +198,10 @@ void updateItem(steam::Client& client, steam::UpdateItemInfo& itemInfo) {
   version = version ? *version + 1 : 1;
   itemInfo.metadata = toString(version);
 
+  TEXT << "Updating item...";
+  if(itemInfo.folder)
+    TEXT << "Folder: " << *itemInfo.folder;
+
   ugc.beginUpdateItem(itemInfo);
 
   // Item update may take some time; Should we loop indefinitely?
@@ -363,6 +367,8 @@ string parseAbsoluteFilePath(string fileName) {
 }
 
 string parseAbsoluteFolderPath(const string& value) {
+  if(value.empty())
+    FATAL << "Empty path given!\n";
   auto path = DirectoryPath(value).absolute();
   if (!path.exists())
     FATAL << "Folder '" << path.getPath() << "' does not exist!";
@@ -425,6 +431,8 @@ steam::UpdateItemInfo parseItemInfo(const vector<Option>& options) {
       out.description = loadFileContents(option.value);
     else if (option.name == "visibility")
       out.visibility = parseVisibility(option.value);
+    else
+      TEXT << "ignored option: " << option.name;
   }
   return out;
 }
@@ -526,7 +534,7 @@ void printValidTags() {
 }
 
 int main(int argc, char** argv) {
-  FatalLog.addOutput(DebugOutput::crash());
+  FatalLog.addOutput(DebugOutput::exitProgram());
   FatalLog.addOutput(DebugOutput::toStream(std::cerr));
   InfoLog.addOutput(DebugOutput::toStream(std::cerr));
 

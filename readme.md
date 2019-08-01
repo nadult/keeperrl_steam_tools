@@ -2,9 +2,10 @@
 
 ## Building
 
-- extract steamworks sdk into keeperrl/extern/steamworks/ directory in the root folder
-  ../steamworks/ should contain public/ and redistributable/ subfolders
-- run fix\_headers.sh (it comments/removes declarations which cause compilation problems)
+- extract steamworks sdk into keeperrl/extern/steamworks/ directory in the root
+  folder ../steamworks/ should contain public/ and redistributable/ subfolders
+- go to keeperrl/ and run fix\_steamworks.sh (it comments/removes declarations
+  which cause compilation problems)
 - run make
 
 For now following platforms are supported:
