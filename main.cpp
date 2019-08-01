@@ -397,10 +397,13 @@ auto parseVisibility(const string& value) {
   return Vis::private_;
 }
 
-void printValidTags();
+void printStandardTags();
 
 string parseTags(const string& list) {
   auto tags = steam::parseTagList(list);
+  auto standardTags = steam::standardTags();
+  bool notStandard = false;
+
   for (auto& tag : tags) {
     bool valid = tag.size() <= 255;
     for (auto c : tag)
@@ -409,7 +412,15 @@ string parseTags(const string& list) {
     if (!valid)
       FATAL << "Invalid tag name: '" << tag << "'\n"
             << "Max length: 255, spaces and special characters are illegal\n";
+    if(!standardTags.contains(tag)) {
+      TEXT << "Warning: not-standard tag: " << tag;
+      notStandard = true;
+    }
   }
+
+  if(notStandard)
+    printStandardTags();
+
   return steam::formatTags(tags);
 }
 
@@ -526,9 +537,9 @@ void printHelp() {
 }
 
 // TODO: tabki trzeba najpierw włączyć na steam partnerze
-void printValidTags() {
+void printStandardTags() {
   TEXT << "Tags accepted by KeeperRL:";
-  for (auto tag : steam::validTags())
+  for (auto tag : steam::standardTags())
     TEXT << "'" << tag << "'";
   TEXT << "\n";
 }
@@ -544,7 +555,7 @@ int main(int argc, char** argv) {
     printHelp();
     return 0;
   } else if (command == "help-tags") {
-    printValidTags();
+    printStandardTags();
     return 0;
   }
 
