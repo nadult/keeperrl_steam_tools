@@ -123,7 +123,7 @@ void printItemsInfo(steam::Client& client, const GetItemInfo& printInfo) {
   qinfo.playtimeStatsDays = 5000;
   auto qid = ugc.createDetailsQuery(qinfo, printInfo.ids);
 
-  ugc.waitForQueries({qid}, 100);
+  ugc.waitForQueries({qid}, milliseconds(5000));
   handleQueryError(ugc, qid);
 
   auto infos = ugc.finishDetailsQuery(qid);
@@ -143,7 +143,7 @@ void printItemsInfo(steam::Client& client, const GetItemInfo& printInfo) {
     return done;
   };
 
-  steam::sleepUntil(retrieveUserNames, 40);
+  steam::sleepUntil(retrieveUserNames, milliseconds(2000));
 
   for (int n = 0; n < infos.size(); n++) {
     auto& info = infos[n];
@@ -193,7 +193,7 @@ void updateItem(steam::Client& client, steam::UpdateItemInfo& itemInfo) {
     steam::ItemDetailsInfo info;
     info.metadata = true;
     auto qid = ugc.createDetailsQuery(info, {*itemInfo.id});
-    ugc.waitForQueries({qid}, 50);
+    ugc.waitForQueries({qid}, milliseconds(2500));
     handleQueryError(ugc, qid);
     auto& metadata = ugc.finishDetailsQuery(qid)[0].metadata;
     version = steam::getItemVersion(metadata);
@@ -209,7 +209,7 @@ void updateItem(steam::Client& client, steam::UpdateItemInfo& itemInfo) {
 
   // Item update may take some time; Should we loop indefinitely?
   optional<steam::UpdateItemResult> result;
-  steam::sleepUntil([&]() { return (bool)(result = ugc.tryUpdateItem()); }, 60 * 10, milliseconds(1000));
+  steam::sleepUntil([&]() { return (bool)(result = ugc.tryUpdateItem()); }, milliseconds(600 * 1000));
 
   if (!result) {
     TEXT << "Timeout!\n";
@@ -241,7 +241,7 @@ void findItems(steam::Client& client, const steam::FindItemInfo& findInfo) {
 
   while (itemCount < maxCount) {
     auto qid = ugc.createFindQuery(findInfo, pageId++);
-    ugc.waitForQueries({qid}, 50);
+    ugc.waitForQueries({qid}, milliseconds(2500));
     handleQueryError(ugc, qid);
 
     auto ids = ugc.finishFindQuery(qid);
@@ -249,7 +249,7 @@ void findItems(steam::Client& client, const steam::FindItemInfo& findInfo) {
       break;
 
     qid = ugc.createDetailsQuery({}, ids);
-    ugc.waitForQueries({qid}, 50);
+    ugc.waitForQueries({qid}, milliseconds(2500));
     handleQueryError(ugc, qid);
 
     auto infos = ugc.finishDetailsQuery(qid);
@@ -277,12 +277,12 @@ void downloadItem(steam::UGC& ugc, steam::ItemId id) {
         lastPercentage += 2;
       }
     }
-    return !ugc.getDownloadedItems().empty();
+    return !ugc.isDownloading(id);
   };
 
   printf("   [");
   fflush(stdout);
-  steam::sleepUntil(downloadCompleted, 100 * 20, milliseconds(50));
+  steam::sleepUntil(downloadCompleted, milliseconds(60 * 1000));
   printf("]\n");
   fflush(stdout);
 }
@@ -291,15 +291,14 @@ void downloadItems(steam::Client& client, const vector<steam::ItemId>& ids) {
   auto& ugc = client.ugc();
 
   auto qid = ugc.createDetailsQuery({}, ids);
-  ugc.waitForQueries({qid}, 50);
+  ugc.waitForQueries({qid}, milliseconds(2500));
   handleQueryError(ugc, qid);
   auto infos = ugc.finishDetailsQuery(qid);
 
   for (int n = 0; n < ids.size(); n++) {
     TEXT << "*) Item " << ids[n] << " '" << infos[n].title << "':";
-    auto state = ugc.itemState(ids[n]);
-    TEXT << "   State: " << steam::itemStateText(state);
-    if (!(state & EItemState::k_EItemStateInstalled))
+    TEXT << "   State: " << steam::itemStateText(ugc.itemState(ids[n]));
+    if (!ugc.isInstalled(ids[n]))
       downloadItem(ugc, ids[n]);
 
     if (auto installInfo = ugc.installInfo(ids[n])) {
