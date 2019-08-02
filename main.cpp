@@ -184,9 +184,22 @@ void printItemsInfo(steam::Client& client, const GetItemInfo& printInfo) {
   }
 }
 
+void legalQuestion() {
+  printf("By submitting this item, you agree to the workshop terms of service:\n"
+         "http://steamcommunity.com/sharedfiles/workshoplegalagreement\n"
+         "Type 'agree' to continue, or something else to quit: ");
+  fflush(stdout);
+
+  std::string command;
+  std::cin >> command;
+  if (command != "agree")
+    exit(0);
+}
+
 void updateItem(steam::Client& client, steam::UpdateItemInfo& itemInfo) {
   auto& ugc = client.ugc();
-  bool legal = false; // TODO: handle it
+
+  legalQuestion();
 
   optional<int> version;
   if (itemInfo.id) {
@@ -221,7 +234,6 @@ void updateItem(steam::Client& client, steam::UpdateItemInfo& itemInfo) {
     TEXT << "Item " << (itemInfo.id ? "updated" : "created") << "!";
     if (!itemInfo.id)
       TEXT << "ID: " << *result->itemId;
-    legal |= result->requireLegalAgreement;
   } else {
     TEXT << *result->error;
 
@@ -229,6 +241,7 @@ void updateItem(steam::Client& client, steam::UpdateItemInfo& itemInfo) {
     if (!itemInfo.id && result->itemId)
       ugc.deleteItem(*result->itemId);
   }
+
   TEXT << "Version: " << *version;
 }
 
