@@ -8,15 +8,19 @@ include keeperrl/Makefile-steam
 NAME=steam_tools
 ifeq ($(MACHINE), x86_64-w64-mingw32)
 	NAME=steam_tools.exe
+	CFLAGS+=-DWINDOWS
 else ifeq ($(MACHINE), i686-w64-mingw32)
 	NAME=steam_tools.exe
+	CFLAGS+=-DWINDOWS
+else
+	LDFLAGS+=-fuse-ld=gold -Wl,-rpath=.
 endif
 
 all: $(NAME)
 
 INCLUDES=-I ./ -I keeperrl/ -I keeperrl/extern/
-CFLAGS+=$(INCLUDES) -g -std=c++1y -pthread
-LDFLAGS+=-fuse-ld=gold -Wl,-rpath=. -L keeperrl/$(STEAM_LIB_DIR) -l $(STEAM_LIB_NAME)
+CFLAGS+=$(INCLUDES) -g -ggdb -std=c++1y -pthread -O0
+LDFLAGS+=-L keeperrl/$(STEAM_LIB_DIR) -l $(STEAM_LIB_NAME)
 
 OBJDIR = obj
 _dummy := $(shell [ -d $(OBJDIR) ] || mkdir -p $(OBJDIR))

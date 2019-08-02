@@ -114,7 +114,6 @@ struct GetItemInfo {
 
 void printItemsInfo(steam::Client& client, const GetItemInfo& printInfo) {
   auto& ugc = client.ugc();
-  auto& utils = client.utils();
   auto& friends = client.friends();
 
   steam::ItemDetailsInfo qinfo;
@@ -564,7 +563,7 @@ int main(int argc, char** argv) {
   }
 
   if (!steam::initAPI()) {
-    printf("Steam is not running\n");
+    printf("Steam is not running (or it's an old version)\n");
     return 1;
   }
   steam::Client client;
